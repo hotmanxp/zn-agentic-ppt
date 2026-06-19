@@ -1,11 +1,13 @@
-import { HashRouter, Routes, Route, NavLink } from 'react-router-dom'
+import { HashRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { ConfigProvider, Layout, Menu } from 'antd'
 import { Welcome } from './routes/Welcome'
 import { Projects } from './routes/Projects'
-import { ProjectEditor } from './routes/ProjectEditor'
 import { Settings } from './routes/Settings'
+import { CollectEditor } from './routes/CollectEditor'
 import { OutlinePage } from './routes/OutlinePage'
+import { GeneratePage } from './routes/GeneratePage'
+import { FineTunePage } from './routes/FineTunePage'
 import { useSettingsStore } from './stores/settings'
 
 const { Header, Content } = Layout
@@ -30,8 +32,11 @@ export function App() {
             <Routes>
               <Route path="/" element={<Welcome />} />
               <Route path="/projects" element={<Projects />} />
-              <Route path="/projects/:id" element={<ProjectEditor />} />
+              <Route path="/projects/:id" element={<Navigate to="collect" replace />} />
+              <Route path="/projects/:id/collect" element={<CollectEditor />} />
               <Route path="/projects/:id/outline" element={<OutlinePage />} />
+              <Route path="/projects/:id/generate" element={<GeneratePage />} />
+              <Route path="/projects/:id/fine-tune" element={<FineTunePage />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
           </Content>
