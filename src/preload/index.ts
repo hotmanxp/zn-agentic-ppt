@@ -28,6 +28,24 @@ const api = {
     onDone: (cb: (e: any) => void) => subscribe(IPC.GENERATION_DONE, cb),
     onError: (cb: (e: any) => void) => subscribe(IPC.GENERATION_ERROR, cb),
   },
+  stage: {
+    collectSave: (id: string, topic: string, source: string) =>
+      ipcRenderer.invoke(IPC.STAGE_COLLECT_SAVE, { id, topic, source }),
+    outlineGenerate: (id: string) =>
+      ipcRenderer.invoke(IPC.STAGE_OUTLINE_GENERATE, { id }),
+    outlineUpdate: (id: string, slideId: string, patch: any) =>
+      ipcRenderer.invoke(IPC.STAGE_OUTLINE_UPDATE, { id, slideId, patch }),
+    slideAdd: (id: string) => ipcRenderer.invoke(IPC.STAGE_SLIDE_ADD, { id }),
+    slideDelete: (id: string, slideId: string) =>
+      ipcRenderer.invoke(IPC.STAGE_SLIDE_DELETE, { id, slideId }),
+    slideRegenerate: (id: string, slideId: string) =>
+      ipcRenderer.invoke(IPC.STAGE_SLIDE_REGENERATE, { id, slideId }),
+    htmlGenerate: (id: string) => ipcRenderer.invoke(IPC.STAGE_HTML_GENERATE, { id }),
+    styleSave: (id: string, style: any) =>
+      ipcRenderer.invoke(IPC.STAGE_STYLE_SAVE, { id, style }),
+    onSlideUpdated: (cb: (e: any) => void) => subscribe(IPC.HTML_SLIDE_UPDATED, cb),
+    onOutlineStream: (cb: (e: any) => void) => subscribe(IPC.STAGE_OUTLINE_STREAM, cb),
+  },
 }
 
 function subscribe(channel: string, cb: (e: any) => void): () => void {
