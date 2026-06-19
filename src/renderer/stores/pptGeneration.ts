@@ -7,6 +7,8 @@ export interface PptSlide {
   id: string
   title: string
   status: SlideStatus
+  /** 1-5: visual layout template assigned by the orchestrator (cycles per slide). */
+  layout?: 1 | 2 | 3 | 4 | 5
   html?: string
   error?: string
   durationMs?: number
@@ -32,6 +34,7 @@ interface PptGenerationState {
     error?: string
     durationMs?: number
     retries?: number
+    layout?: 1 | 2 | 3 | 4 | 5
     completed: number
     total: number
   }) => void
@@ -55,7 +58,9 @@ export const usePptGenerationStore = create<PptGenerationState>((set, get) => ({
 
   initialize: (projectId, slideList) => {
     const slides: Record<string, PptSlide> = {}
-    for (const s of slideList) slides[s.id] = { id: s.id, title: s.title, status: 'pending' }
+    slideList.forEach((s, i) => {
+      slides[s.id] = { id: s.id, title: s.title, status: 'pending', layout: ((i % 5) + 1) as 1 | 2 | 3 | 4 | 5 }
+    })
     set({
       projectId, slides, phase: 'idle', completed: 0, failed: 0, total: slideList.length,
     })
@@ -83,7 +88,7 @@ export const usePptGenerationStore = create<PptGenerationState>((set, get) => ({
     const cur = get()
     const existing = cur.slides[e.slideId]
     const slide = existing ?? { id: e.slideId, title: e.slideId, status: 'pending' as SlideStatus }
-    const next = { ...cur.slides, [e.slideId]: { ...slide, status: e.status, html: e.html, error: e.error, durationMs: e.durationMs, retries: e.retries } }
+    const next = { ...cur.slides, [e.slideId]: { ...slide, status: e.status, html: e.html, error: e.error, durationMs: e.durationMs, retries: e.retries, layout: e.layout ?? slide.layout } }
     const completed = Object.values(next).filter(s => s.status === 'done').length
     const failed = Object.values(next).filter(s => s.status === 'failed').length
     set({

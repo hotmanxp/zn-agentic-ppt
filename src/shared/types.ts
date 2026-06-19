@@ -54,16 +54,41 @@ export interface AppError {
 
 // ── PPT wizard types ───────────────────────────────────────────────────────────
 
+/** Semantic layout archetypes the outline LLM picks per slide.
+ * Orchestrator maps these to visual layouts (1-5) in `slide.layout`. */
+export type SlideLayoutKind =
+  | 'cover'     // 大标题封面 — layout-1 hero
+  | 'list'      // 卡片列表 — layout-2 cards
+  | 'columns'   // 左右分栏对比 — layout-3 split
+  | 'stats'     // 大数字/KPI — layout-4 neon stats
+  | 'quote'     // 居中引言 — layout-5 vintage quote
+  | 'closing'   // 结尾页（致谢/Q&A） — layout-5 quote
+
 export interface OutlineSlide {
   id: string
   title: string
   bullets: string[]
   notes?: string
+  /** Suggested semantic layout. Orchestrator maps this to numeric
+   * `slide.layout` (1-5) and uses it for the visual style. */
+  layout?: SlideLayoutKind
+}
+
+/** Global style info returned by the outline LLM. The orchestrator
+ * passes this through to slide generation so every page stays consistent. */
+export interface OutlineGlobalStyle {
+  primaryColor?: string
+  accentColor?: string
+  fontFamily?: string
+  aspectRatio?: string
 }
 
 export interface Outline {
   slides: OutlineSlide[]
   generatedAt: number
+  /** Optional global style the LLM chose (kept here so regenerate produces
+   * a consistent visual identity across all slides). */
+  globalStyle?: OutlineGlobalStyle
 }
 
 export interface StyleSettings {

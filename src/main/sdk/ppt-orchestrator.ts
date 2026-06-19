@@ -1,7 +1,22 @@
 import { GenerationRunner } from './runner.js'
-import { buildSlidePrompt, generateFrameworkHtml, generateLayoutHtml } from './ppt-framework.js'
+import { buildSystemPrompt, buildSlidePrompt, generateFrameworkHtml, generateLayoutHtml, layoutForIndex } from './ppt-framework.js'
 import * as projectFs from '../fs/projects.js'
-import type { OutlineSlide, Settings } from '../../shared/types.js'
+import type { Outline, Settings, SlideLayoutKind } from '../../shared/types.js'
+
+/**
+ * Maps the outline's semantic layout hint (`cover`/`list`/...) to the
+ * orchestrator's numeric layout (1-5) used for visual style. When the
+ * outline didn't set a hint, fall back to cycling 1-5 by index so we
+ * always have a value.
+ */
+function numericLayout(slide: { layout?: SlideLayoutKind }, index: number): 1 | 2 | 3 | 4 | 5 {
+  if (slide.layout === 'cover') return 1
+  if (slide.layout === 'list') return 2
+  if (slide.layout === 'columns') return 3
+  if (slide.layout === 'stats') return 4
+  if (slide.layout === 'quote' || slide.layout === 'closing') return 5
+  return layoutForIndex(index)
+}
 
 export type SlideStatus = 'pending' | 'layout' | 'generating' | 'done' | 'failed'
 
@@ -9,6 +24,8 @@ export interface OrchestratorSlide {
   id: string
   title: string
   status: SlideStatus
+  /** 1-5: which visual layout template the LLM was instructed to use. */
+  layout: 1 | 2 | 3 | 4 | 5
   html?: string
   error?: string
   durationMs?: number
@@ -17,7 +34,7 @@ export interface OrchestratorSlide {
 
 export interface OrchestratorOptions {
   projectId: string
-  outline: { slides: OutlineSlide[] }
+  outline: Outline
   settings: Settings
   style?: unknown
   cwd: string
@@ -47,21 +64,23 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
   const concurrency = Math.max(1, opts.concurrency ?? 3)
   const maxRetries = Math.max(0, opts.maxRetries ?? 2)
 
-  const slides: OrchestratorSlide[] = opts.outline.slides.map(s => ({
+  const slides: OrchestratorSlide[] = opts.outline.slides.map((s, i) => ({
     id: s.id, title: s.title, status: 'pending',
+    layout: numericLayout(s, i),
   }))
   const total = slides.length
 
   // Step 1: write the framework HTML up front
   const frameworkHtml = generateFrameworkHtml({
     topic: opts.outline.slides[0]?.title ?? 'Presentation',
-    slides: opts.outline.slides.map(s => ({ id: s.id, title: s.title })),
+    slides: opts.outline.slides.map((s, i) => ({ id: s.id, title: s.title, layout: numericLayout(s, i) })),
   })
   await projectFs.writeProjectFramework(opts.projectId, frameworkHtml)
 
   // Step 1b: write N layout placeholders immediately (no LLM)
   // so the user sees structure while the LLM fills content.
-  for (const target of opts.outline.slides) {
+  for (let i = 0; i < opts.outline.slides.length; i++) {
+    const target = opts.outline.slides[i]
     const layoutHtml = generateLayoutHtml(target)
     await projectFs.writeProjectSlide(opts.projectId, target.id, layoutHtml)
     const slide = slides.find(s => s.id === target.id)!
@@ -96,17 +115,20 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
         onProgress(slide)
         const target = opts.outline.slides.find(s => s.id === slide.id)!
         const others = opts.outline.slides.filter(s => s.id !== slide.id).map(s => ({ id: s.id, title: s.title }))
-        const systemPrompt = [
-          `【项目信息】`,
-          `CWD: ${opts.cwd}`,
-          `共 ${opts.outline.slides.length} 张幻灯片, 当前要生成第 ${opts.outline.slides.findIndex(s => s.id === slide.id) + 1} 张`,
-          ``,
-          `【文件结构】`,
-          `- ${opts.cwd}/index.html — 框架(自动生成,不要改)`,
-          `- ${opts.cwd}/slides/<id>.html — 每张幻灯片(你编辑这个)`,
-          ``,
-          buildSlidePrompt(target, others, opts.style),
-        ].join('\n')
+        const slideIndex = opts.outline.slides.findIndex(s => s.id === slide.id) + 1
+        // System prompt: persona + hard rules + deck-wide palette/font.
+        // Per-slide context (cwd, slide index, file paths) goes in the
+        // user prompt so the system prompt stays static across turns.
+        const systemPrompt = buildSystemPrompt({
+          globalStyle: opts.outline.globalStyle,
+        })
+        const userMessage = buildSlidePrompt(target, others, {
+          cwd: opts.cwd,
+          slideIndex,
+          totalSlides: opts.outline.slides.length,
+          style: opts.style,
+          layout: slide.layout,
+        })
         const startedAt = Date.now()
 
         let success = false
@@ -119,6 +141,7 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
               cwd: opts.cwd,
               settings: opts.settings,
               systemPrompt,
+              userMessage,
               runId: `${opts.projectId}:${slide.id}`,
               signal: opts.signal,
             })
@@ -166,7 +189,7 @@ async function runSingleSlide(opts: {
   return new Promise<string>((resolve, reject) => {
     if (opts.signal?.aborted) return reject(new Error('aborted'))
     const slideId = opts.runId.split(':').pop() ?? ''
-    const userMsg = opts.userMessage ?? '请使用 mcp__slides__write_slide_file 工具把这一页 PPT 的 HTML 写入 slides/' + slideId + '.html（空模板已存在，请覆盖）。'
+    const userMsg = opts.userMessage ?? `请用 Read 工具读取 slides/${slideId}.html（已存在空模板），然后用 Write 工具覆盖整个文件为新的 <section> HTML。完成后回复 "done"。`
     const runner = new GenerationRunner({
       cwd: opts.cwd,
       topic: '',

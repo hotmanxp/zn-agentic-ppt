@@ -9,7 +9,7 @@
     "zn-agentic-ppt": "./bin/zn-agentic-ppt.js"
   },
   "scripts": {
-    "dev": "bun run scripts/dev.ts",
+    "dev": "bun run build && bun run scripts/dev.ts",
     "build": "bun run build:main && bun run build:renderer",
     "build:main": "bun run scripts/build-main.ts",
     "build:renderer": "vite build",

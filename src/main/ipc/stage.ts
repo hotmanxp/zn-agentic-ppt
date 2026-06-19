@@ -20,7 +20,7 @@ function broadcast(channel: string, payload: unknown) {
 }
 
 import { registry } from './stage-stream-registry.js'
-import { extractFirstJsonObject } from '../sdk/json-extract.js'
+import { extractFirstJsonValue } from '../sdk/json-extract.js'
 import { runOrchestrator } from '../sdk/ppt-orchestrator.js'
 import { generateLayoutsOnly } from '../sdk/ppt-layout.js'
 
@@ -82,7 +82,7 @@ export function registerStageIPC() {
     }
     let parsed: { slides: OutlineSlide[] }
     try {
-      parsed = extractFirstJsonObject<{ slides: OutlineSlide[] }>(buffer)
+      parsed = extractFirstJsonValue<{ slides: OutlineSlide[] }>(buffer)
     } catch (e: any) {
       console.log(`[outline:${id}] JSON extraction failed: ${e?.message ?? e}`)
       console.log(`[outline:${id}] LLM buffer (first 800 chars): ${buffer.slice(0, 800)}`)
@@ -199,6 +199,7 @@ export function registerStageIPC() {
             error: slide.error,
             durationMs: slide.durationMs,
             retries: slide.retries,
+            layout: slide.layout,
             completed: 0, // filled by orchestrator state — recompute on renderer
             total: outline.slides.length,
           })

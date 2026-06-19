@@ -57,7 +57,7 @@ export interface BridgeApi {
     htmlCancel(id: string): Promise<{ ok: boolean }>
     styleSave(id: string, style: StyleSettings): Promise<void>
     onSlideUpdated(cb: (e: { projectId: string; slideId: string; html: string }) => void): () => void
-    onHtmlSlideReady(cb: (e: { projectId: string; slideId: string; status: 'layout' | 'done' | 'failed'; html?: string; error?: string; durationMs?: number; retries?: number; completed: number; total: number }) => void): () => void
+    onHtmlSlideReady(cb: (e: { projectId: string; slideId: string; status: 'layout' | 'done' | 'failed'; html?: string; error?: string; durationMs?: number; retries?: number; layout?: 1 | 2 | 3 | 4 | 5; completed: number; total: number }) => void): () => void
     onHtmlGenerateDone(cb: (e: { projectId: string; completed: number; failed: number; total: number; cancelled: boolean }) => void): () => void
   }
 }
