@@ -1,4 +1,41 @@
-import type { ProjectDetail, ProjectMeta, Settings } from './types.js'
+import type { OutlineSlide, Outline, ProjectDetail, ProjectMeta, Settings, StyleSettings } from './types.js'
+
+export interface CollectSaveRequest {
+  id: string
+  topic: string
+  source: string
+}
+
+export interface OutlineUpdateRequest {
+  id: string
+  slideId: string
+  patch: Partial<Pick<OutlineSlide, 'title' | 'bullets' | 'notes'>>
+}
+
+export interface SlideAddResponse {
+  slide: OutlineSlide
+}
+
+export interface SlideRegenerateResponse {
+  html: string
+  durationMs: number
+}
+
+export interface HtmlGenerateResponse {
+  html: string
+  durationMs: number
+}
+
+export interface StyleSaveRequest {
+  id: string
+  style: StyleSettings
+}
+
+export interface HtmlSlideUpdatedPayload {
+  projectId: string
+  slideId: string
+  html: string
+}
 
 export interface SDKEventPayload {
   runId: string
@@ -42,7 +79,10 @@ export interface UpdateProjectRequest {
 }
 
 export type {
+  OutlineSlide,
+  Outline,
   ProjectMeta,
   ProjectDetail,
   Settings,
+  StyleSettings,
 }
