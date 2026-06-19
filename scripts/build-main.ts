@@ -10,7 +10,20 @@ await build({
   target: 'node20',
   format: 'esm',
   outdir: 'dist',
-  external: ['electron'],
+  external: [
+    'electron',
+    // vendored SDK is pre-bundled, leave its peer deps as runtime require()
+    './vendor/*',
+    '../vendor/*',
+    '../../vendor/*',
+    '../../../vendor/*',
+    '@anthropic-ai/*',
+    '@aws-sdk/*',
+    '@google-cloud/*',
+    '@modelcontextprotocol/*',
+    'google-auth-library',
+    'fsevents',
+  ],
   sourcemap: true,
   loader: { '.ts': 'ts' },
 })
