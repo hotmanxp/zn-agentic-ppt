@@ -9,6 +9,7 @@ export interface ProjectMeta {
   pageCount: number | null
   createdAt: number
   updatedAt: number
+  lastError: string | null
 }
 
 export interface ProjectDetail extends ProjectMeta {

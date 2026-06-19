@@ -52,6 +52,7 @@ export async function createProject(topic: string): Promise<ProjectMeta> {
     outline: '',
     pageCount: null,
     createdAt: now, updatedAt: now,
+    lastError: null,
   }
   const dir = join(getProjectsDir(), id)
   await mkdir(dir, { recursive: true })
@@ -97,4 +98,18 @@ export async function writeProjectHtml(id: string, html: string): Promise<void> 
     }
     await writeFile(join(dir, 'meta.json'), JSON.stringify(next, null, 2))
   }
+}
+
+export async function setProjectStatus(id: string, status: ProjectStatus, errorMessage?: string): Promise<void> {
+  const dir = join(getProjectsDir(), id)
+  const metaPath = join(dir, 'meta.json')
+  const existing = await readFile(metaPath, 'utf8')
+  const meta = JSON.parse(existing) as ProjectMeta
+  const next: ProjectMeta = {
+    ...meta,
+    status,
+    lastError: errorMessage ?? null,
+    updatedAt: Date.now(),
+  }
+  await writeFile(metaPath, JSON.stringify(next, null, 2))
 }

@@ -20,6 +20,20 @@ const api = {
   system: {
     userDataPath: () => ipcRenderer.invoke(IPC.SYSTEM_USER_DATA_PATH),
   },
+  generation: {
+    start: (id: string, opts?: any) => ipcRenderer.invoke(IPC.GENERATION_START, { id, opts }),
+    cancel: (runId: string) => ipcRenderer.invoke(IPC.GENERATION_CANCEL, { runId }),
+    onEvent: (cb: (e: any) => void) => subscribe(IPC.SDK_EVENT, cb),
+    onProgress: (cb: (e: any) => void) => subscribe(IPC.GENERATION_PROGRESS, cb),
+    onDone: (cb: (e: any) => void) => subscribe(IPC.GENERATION_DONE, cb),
+    onError: (cb: (e: any) => void) => subscribe(IPC.GENERATION_ERROR, cb),
+  },
+}
+
+function subscribe(channel: string, cb: (e: any) => void): () => void {
+  const listener = (_: unknown, payload: any) => cb(payload)
+  ipcRenderer.on(channel, listener)
+  return () => ipcRenderer.removeListener(channel, listener)
 }
 
 contextBridge.exposeInMainWorld('api', api)
