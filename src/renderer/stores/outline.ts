@@ -9,8 +9,8 @@ interface OutlineStore {
   load: (id: string) => Promise<void>
   generate: (id: string, topic: string, source: string) => Promise<OutlineSlide[]>
   updateSlide: (id: string, slideId: string, patch: Partial<OutlineSlide>) => Promise<void>
-  addSlide: (id: string) => Promise<void>
-  deleteSlide: (id: string, slideId: string) => Promise<void>
+  addSlide: (id: string) => Promise<{ slides: OutlineSlide[]; generatedAt: number }>
+  deleteSlide: (id: string, slideId: string) => Promise<{ slides: OutlineSlide[]; generatedAt: number }>
   regenerate: (id: string, slideId: string) => Promise<void>
   generateHtml: (id: string) => Promise<string>
   saveStyle: (id: string, style: StyleSettings) => Promise<void>
@@ -36,11 +36,15 @@ export const useOutlineStore = create<OutlineStore>((set, get) => ({
   },
   addSlide: async (id) => {
     const r = await api.stage.slideAdd(id)
-    set({ outline: { slides: r.slides, generatedAt: Date.now() } })
+    const outline = { slides: r.slides, generatedAt: Date.now() }
+    set({ outline })
+    return outline
   },
   deleteSlide: async (id, slideId) => {
     const r = await api.stage.slideDelete(id, slideId)
-    set({ outline: { slides: r.slides, generatedAt: Date.now() } })
+    const outline = { slides: r.slides, generatedAt: Date.now() }
+    set({ outline })
+    return outline
   },
   regenerate: async (id, slideId) => {
     await api.stage.slideRegenerate(id, slideId)

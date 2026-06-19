@@ -5,6 +5,7 @@ import { Welcome } from './routes/Welcome'
 import { Projects } from './routes/Projects'
 import { ProjectEditor } from './routes/ProjectEditor'
 import { Settings } from './routes/Settings'
+import { OutlinePage } from './routes/OutlinePage'
 import { useSettingsStore } from './stores/settings'
 
 const { Header, Content } = Layout
@@ -30,6 +31,7 @@ export function App() {
               <Route path="/" element={<Welcome />} />
               <Route path="/projects" element={<Projects />} />
               <Route path="/projects/:id" element={<ProjectEditor />} />
+              <Route path="/projects/:id/outline" element={<OutlinePage />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
           </Content>

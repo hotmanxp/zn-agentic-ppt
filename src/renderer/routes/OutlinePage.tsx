@@ -1,0 +1,99 @@
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { Button, App as AntdApp } from 'antd'
+import { api } from '../lib/api'
+import { ProjectStepper } from '../components/ProjectStepper'
+import { StageNav } from '../components/StageNav'
+import { OutlineCard } from '../components/OutlineCard'
+import { useOutlineStore } from '../stores/outline'
+import type { Outline, OutlineSlide } from '@shared/types'
+
+export function OutlinePage() {
+  const { id = '' } = useParams()
+  const nav = useNavigate()
+  const { message } = AntdApp.useApp()
+  const { outline, generate, updateSlide, addSlide, deleteSlide } = useOutlineStore()
+  const [localOutline, setLocalOutline] = useState<Outline | null>(outline)
+  const [generating, setGenerating] = useState(false)
+
+  useEffect(() => { setLocalOutline(outline) }, [outline])
+
+  // Load existing outline from main (read from project meta hasOutline + need read IPC)
+  useEffect(() => {
+    if (!localOutline) {
+      // Try to read source — if exists, regenerate outline
+      // (For MVP, if user comes back here without outline, ask them to go back to Stage 1)
+      // Fallback: navigate to Stage 1 if no outline
+      api.project.get(id).then(p => {
+        if (!p?.hasOutline) nav(`/projects/${id}/collect`)
+      })
+    }
+  }, [id, localOutline, nav])
+
+  if (!localOutline) return null
+
+  const onSlideChange = (slideId: string, patch: Partial<OutlineSlide>) => {
+    setLocalOutline(o => o ? {
+      ...o,
+      slides: o.slides.map(s => s.id === slideId ? { ...s, ...patch } : s),
+    } : o)
+    // Debounced save
+    setTimeout(() => updateSlide(id, slideId, patch), 500)
+  }
+
+  const onAdd = async () => {
+    const o = await addSlide(id)
+    setLocalOutline(o)
+  }
+
+  const onDelete = async (slideId: string) => {
+    if (!confirm('删除该幻灯片？')) return
+    const o = await deleteSlide(id, slideId)
+    setLocalOutline(o)
+  }
+
+  const onRegenerate = async () => {
+    setGenerating(true)
+    try {
+      const slides = await api.stage.outlineGenerate(id)
+      setLocalOutline({ slides: slides.slides, generatedAt: Date.now() })
+    } catch (e: any) {
+      message.error(e.message ?? '重新生成失败')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const onNext = async () => {
+    if (localOutline.slides.length === 0) { message.warning('至少需要一页'); return }
+    nav(`/projects/${id}/generate`)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
+      <ProjectStepper projectId={id} />
+      <div style={{ flex: 1, padding: '32px 48px', background: '#fff', overflow: 'auto' }}>
+        <h2 style={{ margin: '0 0 4px' }}>第 2 步 · 大纲编辑</h2>
+        <p style={{ color: '#6b7280', margin: '0 0 20px' }}>编辑每页标题和要点。改完自动保存。</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 16 }}>
+          {localOutline.slides.map((s, i) => (
+            <OutlineCard key={s.id} slide={s} index={i}
+              onChange={p => onSlideChange(s.id, p)}
+              onDelete={() => onDelete(s.id)} />
+          ))}
+        </div>
+        <Button block type="dashed" onClick={onAdd} style={{ marginBottom: 16 }}>+ 添加新页</Button>
+      </div>
+      <StageNav
+        projectId={id}
+        current="outline"
+        canNext={localOutline.slides.length > 0}
+        onNext={onNext}
+        nextLabel="下一步：生成 PPT"
+      />
+      <div style={{ position: 'absolute', top: 100, right: 32 }}>
+        <Button onClick={onRegenerate} loading={generating}>↻ 重新生成大纲</Button>
+      </div>
+    </div>
+  )
+}
