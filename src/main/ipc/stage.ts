@@ -18,6 +18,8 @@ function broadcast(channel: string, payload: unknown) {
   }
 }
 
+import { registry } from './stage-stream-registry.js'
+
 async function loadSettingsAndOutline(id: string) {
   const settings = await settingsFs.getSettings()
   const project = await projectFs.getProject(id)
@@ -43,23 +45,40 @@ export function registerStageIPC() {
     if (!source.trim()) throw new Error('empty source')
     const settings = await settingsFs.getSettings()
     const cwd = getProjectDir(id)
+    const key = id
     let buffer = ''
     const runner = new GenerationRunner({
       cwd, topic: project.topic, outline: source, settings, runId: id,
       systemPrompt: buildOutlinePrompt(project.topic, source),
       userMessage: '请根据以上指令生成大纲。',
-      onEvent: (m: any) => broadcast(IPC.STAGE_OUTLINE_STREAM, { id, message: m }),
-      onProgress: () => {},
-      onDone: ({ html }) => { buffer = html },
-      onError: ({ error }) => { throw new Error(error.message) },
+      onEvent: () => {},
+      onProgress: (info) => broadcast(IPC.STAGE_OUTLINE_STREAM, {
+        runId: key, projectId: id, kind: 'outline', phase: 'streaming', chars: info.current,
+      }),
+      onDone: ({ html, durationMs }) => {
+        buffer = html
+        broadcast(IPC.STAGE_OUTLINE_STREAM, {
+          runId: key, projectId: id, kind: 'outline', phase: 'done', chars: html.length, html, durationMs,
+        })
+        registry.unregister(key)
+      },
+      onError: ({ error }) => {
+        const phase = registry.isCancelled(key) ? 'cancelled' : 'error'
+        broadcast(IPC.STAGE_OUTLINE_STREAM, { runId: key, projectId: id, kind: 'outline', phase, error })
+        registry.unregister(key)
+        if (phase === 'error') throw new Error(error.message)
+      },
     })
+    registry.register(key, runner, 'outline')
     await runner.run()
-    // Parse JSON from buffer (may have markdown fences)
+    if (registry.isCancelled(key)) {
+      return { phase: 'cancelled' as const }
+    }
     const jsonMatch = buffer.match(/\{[\s\S]*\}/)
     if (!jsonMatch) throw new Error('LLM did not return JSON')
     const parsed = JSON.parse(jsonMatch[0]) as { slides: OutlineSlide[] }
     await outlineFs.writeOutline(id, { slides: parsed.slides, generatedAt: Date.now() })
-    return { slides: parsed.slides }
+    return { phase: 'done' as const, slides: parsed.slides }
   })
 
   ipcMain.handle(IPC.STAGE_OUTLINE_UPDATE, async (_, { id, slideId, patch }: { id: string; slideId: string; patch: any }) => {
@@ -81,29 +100,45 @@ export function registerStageIPC() {
     const htmlPath = join(getProjectDir(id), 'index.html')
     let currentHtml = ''
     try { currentHtml = await readFile(htmlPath, 'utf8') } catch {}
-    const style = await outlineFs.readStyle(id)
     const cwd = getProjectDir(id)
     const others = outline.slides.filter(s => s.id !== slideId).map(s => ({ id: s.id, title: s.title }))
     const prompt = buildRegeneratePrompt(target, others, extractSection(currentHtml, slideId) ?? '')
-    let buffer = ''
+    const key = `${id}:${slideId}`
     const runner = new GenerationRunner({
       cwd, topic: target.title, outline: prompt, settings, runId: id,
       systemPrompt: prompt,
       userMessage: '请根据以上指令重新生成该页。',
-      onEvent: () => {}, onProgress: () => {},
+      onEvent: () => {},
+      onProgress: (info) => broadcast(IPC.STAGE_SLIDE_REGENERATE_STREAM, {
+        runId: key, projectId: id, slideId, kind: 'slide-regen', phase: 'streaming', chars: info.current,
+      }),
       onDone: ({ html, durationMs }) => {
-        buffer = html
-        // Splice into existing HTML
-        const newSection = extractSection(buffer, slideId) ?? buffer.trim()
+        const newSection = extractSection(html, slideId) ?? html.trim()
         const spliced = spliceSlide(currentHtml, slideId, newSection)
         projectFs.writeProjectHtml(id, spliced).then(() => {
           broadcast(IPC.HTML_SLIDE_UPDATED, { projectId: id, slideId, html: newSection })
         })
+        broadcast(IPC.STAGE_SLIDE_REGENERATE_STREAM, {
+          runId: key, projectId: id, slideId, kind: 'slide-regen', phase: 'done',
+          chars: html.length, html: newSection, durationMs,
+        })
+        registry.unregister(key)
       },
-      onError: ({ error }) => { throw new Error(error.message) },
+      onError: ({ error }) => {
+        const phase = registry.isCancelled(key) ? 'cancelled' : 'error'
+        broadcast(IPC.STAGE_SLIDE_REGENERATE_STREAM, {
+          runId: key, projectId: id, slideId, kind: 'slide-regen', phase, error,
+        })
+        registry.unregister(key)
+        if (phase === 'error') throw new Error(error.message)
+      },
     })
+    registry.register(key, runner, 'slide-regen')
     await runner.run()
-    return { html: buffer, durationMs: 0 }
+    if (registry.isCancelled(key)) {
+      return { phase: 'cancelled' as const, html: '', durationMs: 0 }
+    }
+    return { phase: 'done' as const, html: '', durationMs: 0 }
   })
 
   ipcMain.handle(IPC.STAGE_HTML_GENERATE, async (_, { id }: { id: string }) => {
@@ -132,6 +167,19 @@ export function registerStageIPC() {
 
   ipcMain.handle(IPC.STAGE_STYLE_SAVE, async (_, { id, style }: { id: string; style: StyleSettings }) => {
     await outlineFs.writeStyle(id, style)
+  })
+
+  ipcMain.handle(IPC.STAGE_OUTLINE_CANCEL, async (_, { id }: { id: string }) => {
+    registry.markCancelled(id)
+    const ok = registry.cancel(id)
+    return { ok }
+  })
+
+  ipcMain.handle(IPC.STAGE_SLIDE_CANCEL, async (_, { id, slideId }: { id: string; slideId: string }) => {
+    const key = `${id}:${slideId}`
+    registry.markCancelled(key)
+    const ok = registry.cancel(key)
+    return { ok }
   })
 }
 
