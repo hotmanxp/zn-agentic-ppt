@@ -396,28 +396,24 @@ source(用户原始描述,可能很粗糙):
 风格: {{briefStyle}}
 ```
 
-**调用方降级路径**(`src/main/ipc/stage.ts` 的 outline handler):
+**调用方路径**(`src/main/ipc/stage.ts` 的 outline handler):
 ```ts
 const project = await fs.getProject(id)
 const brief = project.brief
-if (brief) {
-  await renderPrompt('outline', {
-    briefName: brief.name,
-    briefAudience: brief.audience,
-    briefDurationMinutes: brief.durationMinutes.toString(),
-    briefContent: brief.content,
-    briefStyle: brief.style,
-  })
-} else {
-  logger.warn('brief-fallback, using topic+source for project', id)
-  await renderPrompt('outline', {
-    topic: project.topic,
-    source: project.source ?? '',
-  })  // 临时支持旧模板 + 旧变量
+if (!brief) {
+  // 旧数据:必须先完成 Stage 1 优化,不允许静默降级(避免 LLM 拿到残缺信息)
+  throw new Error('project has no brief — user must complete Stage 1 优化 first')
 }
+const systemPrompt = await renderPrompt('outline', {
+  briefName: brief.name,
+  briefAudience: brief.audience,
+  briefDurationMinutes: brief.durationMinutes.toString(),
+  briefContent: brief.content,
+  briefStyle: brief.style,
+})
 ```
 
-(降级路径临时保留旧变量;后续删 `topic`/`source` 变量时,所有项目都跑过 Stage 1 优化后可彻底清掉。)
+旧项目行为:在 Stage 1 入口「下一步」会先弹"请先点优化"提示;若直接调 outline API 则抛上述错误。**不**做 topic+source 降级,因为降级会让 LLM 拿到残缺信息产出次优大纲。
 
 ## 7. IPC 三件套
 
@@ -506,7 +502,7 @@ bun run dev
 - [ ] 「保存项目信息」 → 重进页面字段保留
 - [ ] 「下一步」 → /projects/:id/outline, 大纲基于 brief(不再读 source)
 - [ ] 老数据: 删字段后 source 还在 → CollectEditor 仍能进,「下一步」提示先优化
-- [ ] 旧项目无 brief → stage.ts 降级到 topic+source, 日志打 `brief-fallback`
+- [ ] 旧项目无 brief → CollectEditor StageNav 的 canNext=false,「下一步」被 disable;若直接调 stage.ts 抛"请先优化"错误,**不**降级用 topic+source
 
 ## 10. 风险 & 缓解
 
@@ -517,7 +513,7 @@ bun run dev
 | 用户在 Modal 中点取消后 LLM 仍出残缺 JSON | validateBrief 兜底, 缺字段抛 PARSE, UI 给 retry 按钮 |
 | IPC 双向同步死锁 | askQueue 是 Map + qid 路由; answer handler 不阻塞, 只 resolve; turns 单调递增, handler 同步判断 |
 | 并发两次"优化" | IPC handler 入口检查 active agent, 有则 reject + 提示 |
-| outline prompt 切换后老项目无 brief | stage.ts handler 检测 brief==null 时降级用 `project.topic + project.source` 喂老 prompt(临时 fallback), 日志打 `brief-fallback`, **不**抛错 |
+| outline prompt 切换后老项目无 brief | stage.ts handler 检测 brief==null 时**直接抛错**引导用户回 Stage 1 优化;**不**做 topic+source 降级(避免 LLM 拿到残缺信息) |
 | 主进程改了必须 rebuild | AGENTS.md 已要求, 自测时严格 `bun run build:main` + 完全退出 Electron |
 | renderPrompt 找不到 prompt id | `registerPrompt` 在 `src/main/sdk/prompts/index.ts` 末尾统一注册, 漏注册会立即 throw |
 | `useBriefOptimizeStore` 漏事件 | start() 内 await IPC 成功后才订阅 onAskUserQuestion/onDone/onError |
