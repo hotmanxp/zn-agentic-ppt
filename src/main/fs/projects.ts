@@ -2,7 +2,8 @@ import { mkdir, readFile, readdir, rm, writeFile, rename } from 'node:fs/promise
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import type { ProjectDetail, ProjectMeta, ProjectStatus } from '../../shared/types.js'
+import type { ProjectDetail, ProjectMeta, ProjectStatus, Outline, StyleSettings } from '../../shared/types.js'
+import { DEFAULT_STYLE } from '../../shared/types.js'
 import { getProjectsDir } from './paths.js'
 
 const ALLOWED_UPDATE_KEYS = ['title', 'topic', 'outline'] as const
@@ -26,9 +27,13 @@ export async function listProjects(): Promise<ProjectMeta[]> {
 export async function getProject(id: string): Promise<ProjectDetail | null> {
   const dir = join(getProjectsDir(), id)
   if (!existsSync(dir)) return null
+  const metaPath = join(dir, 'meta.json')
+  if (!existsSync(metaPath)) return null
   try {
-    const metaRaw = await readFile(join(dir, 'meta.json'), 'utf8')
+    const metaRaw = await readFile(metaPath, 'utf8')
     const meta = JSON.parse(metaRaw) as ProjectMeta
+
+    // Legacy combined HTML
     let html: string | null = null
     let htmlSize: number | null = null
     const htmlPath = join(dir, 'index.html')
@@ -36,7 +41,55 @@ export async function getProject(id: string): Promise<ProjectDetail | null> {
       html = await readFile(htmlPath, 'utf8')
       htmlSize = html.length
     }
-    return { ...meta, html, htmlSize, lastGeneratedAt: html ? meta.updatedAt : null, lastError: null }
+
+    // Stage 1: source
+    let source: string | null = null
+    const sourcePath = join(dir, 'source.txt')
+    if (existsSync(sourcePath)) {
+      source = await readFile(sourcePath, 'utf8')
+    }
+
+    // Stage 2: structured outline
+    let structuredOutline: Outline | null = null
+    const outlineJsonPath = join(dir, 'outline.json')
+    if (existsSync(outlineJsonPath)) {
+      try {
+        structuredOutline = JSON.parse(await readFile(outlineJsonPath, 'utf8'))
+      } catch { /* corrupt — leave null */ }
+    }
+
+    // Stage 3: style (always return; fall back to DEFAULT_STYLE)
+    let style: StyleSettings = { ...DEFAULT_STYLE }
+    const stylePath = join(dir, 'style.json')
+    if (existsSync(stylePath)) {
+      try {
+        style = { ...DEFAULT_STYLE, ...JSON.parse(await readFile(stylePath, 'utf8')) }
+      } catch { /* corrupt — keep defaults */ }
+    }
+
+    // Stage 3: per-slide HTML files
+    const slidesDirPath = join(dir, 'slides')
+    const slides: ProjectDetail['slides'] = []
+    if (existsSync(slidesDirPath)) {
+      const entries = await readdir(slidesDirPath)
+      for (const f of entries) {
+        if (!f.endsWith('.html')) continue
+        const sid = f.replace(/\.html$/, '')
+        const shtml = await readFile(join(slidesDirPath, f), 'utf8')
+        slides.push({ id: sid, html: shtml, status: 'done' })
+      }
+    }
+
+    return {
+      ...meta,
+      html, htmlSize,
+      lastGeneratedAt: html ? meta.updatedAt : null,
+      lastError: null,
+      source,
+      structuredOutline,
+      style,
+      slides,
+    }
   } catch {
     return null
   }
