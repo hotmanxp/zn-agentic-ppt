@@ -25,6 +25,7 @@ export const IPC = {
   SETTINGS_PROMPT_SET: 'settings:prompt-set',
   SETTINGS_PROMPT_RESET: 'settings:prompt-reset',
   SETTINGS_PROMPT_LIST: 'settings:prompt-list',
+  SETTINGS_PROMPT_LIST_SPECS: 'settings:prompt-list-specs',
   SYSTEM_USER_DATA_PATH: 'system:userDataPath',
 
   // Stage 1-4 (renderer → main, invoke)

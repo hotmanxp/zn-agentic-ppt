@@ -42,6 +42,13 @@ export interface BridgeApi {
       set(id: string, template: string): Promise<void>
       reset(id: string): Promise<void>
       list(): Promise<Record<string, string>>
+      listSpecs(): Promise<Array<{
+        id: string
+        title: string
+        description: string
+        defaultTemplate: string
+        variables: Array<{ name: string; description: string; type: 'string' | 'json'; example?: string }>
+      }>>
     }
   }
   system: {

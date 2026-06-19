@@ -1,8 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { IPC } from '../../shared/ipc-channels.js'
 import { GenerationRunner } from '../sdk/runner.js'
-import { buildOutlinePrompt } from '../sdk/outline-prompt.js'
-import { buildRegeneratePrompt } from '../sdk/regenerate-prompt.js'
+import { renderPrompt } from '../sdk/prompts/index.js'
 import { spliceSlide } from '../sdk/html-splice.js'
 import * as outlineFs from '../fs/outline.js'
 import * as projectFs from '../fs/projects.js'
@@ -55,7 +54,7 @@ export function registerStageIPC() {
     let buffer = ''
     const runner = new GenerationRunner({
       cwd, topic: project.topic, outline: source, settings, runId: id,
-      systemPrompt: buildOutlinePrompt(project.topic, source),
+      systemPrompt: await renderPrompt('outline', { topic: project.topic, source }),
       userMessage: '请根据以上指令生成大纲。',
       onEvent: () => {},
       onProgress: (info) => broadcast(IPC.STAGE_OUTLINE_STREAM, {
@@ -134,7 +133,23 @@ export function registerStageIPC() {
     try { currentHtml = await readFile(htmlPath, 'utf8') } catch {}
     const cwd = getProjectDir(id)
     const others = outline.slides.filter(s => s.id !== slideId).map(s => ({ id: s.id, title: s.title }))
-    const prompt = buildRegeneratePrompt(target, others, extractSection(currentHtml, slideId) ?? '')
+    const currentSection = extractSection(currentHtml, slideId) ?? ''
+    const layoutIdx = target.layout ? (() => {
+      if (target.layout === 'cover') return 1
+      if (target.layout === 'list') return 2
+      if (target.layout === 'columns') return 3
+      if (target.layout === 'stats') return 4
+      return 5
+    })() : undefined
+    const layoutHint = layoutIdx ? `【本张幻灯片指定 layout = layout-${layoutIdx}】—— **必须**使用对应的模板，与整套 PPT 的轮换 layout 一致。` : ''
+    const prompt = await renderPrompt('regenerate', {
+      target,
+      others,
+      currentSectionHtml: currentSection,
+      layout: layoutIdx?.toString() ?? '',
+      slideId,
+      layoutHint,
+    })
     const key = `${id}:${slideId}`
     const runner = new GenerationRunner({
       cwd, topic: target.title, outline: prompt, settings, runId: id,

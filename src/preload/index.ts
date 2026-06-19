@@ -22,6 +22,7 @@ const api = {
       set: (id: string, template: string) => ipcRenderer.invoke(IPC.SETTINGS_PROMPT_SET, { id, template }),
       reset: (id: string) => ipcRenderer.invoke(IPC.SETTINGS_PROMPT_RESET, { id }),
       list: () => ipcRenderer.invoke(IPC.SETTINGS_PROMPT_LIST),
+      listSpecs: () => ipcRenderer.invoke(IPC.SETTINGS_PROMPT_LIST_SPECS),
     },
   },
   system: {

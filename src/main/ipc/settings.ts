@@ -2,6 +2,7 @@ import { ipcMain, app } from 'electron'
 import { IPC } from '../../shared/ipc-channels.js'
 import * as fs from '../fs/settings.js'
 import { testLLMConnection } from '../sdk/connection.js'
+import { PROMPT_SPECS } from '../sdk/prompts/index.js'
 
 export function registerSettingsIPC(): void {
   ipcMain.handle(IPC.SETTINGS_GET, () => fs.getSettings())
@@ -20,5 +21,6 @@ export function registerSettingsIPC(): void {
     await fs.resetPromptOverride(id)
   })
   ipcMain.handle(IPC.SETTINGS_PROMPT_LIST, async () => fs.listPromptOverrides())
+  ipcMain.handle(IPC.SETTINGS_PROMPT_LIST_SPECS, () => PROMPT_SPECS)
   ipcMain.handle(IPC.SYSTEM_USER_DATA_PATH, () => app.getPath('userData'))
 }
