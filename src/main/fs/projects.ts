@@ -104,7 +104,9 @@ export async function setProjectStatus(id: string, status: ProjectStatus, errorM
   const metaPath = join(dir, 'meta.json')
   const existing = await readFile(metaPath, 'utf8')
   const meta = JSON.parse(existing) as ProjectMeta
-  const next: ProjectMeta = {
+  // meta.json stores the on-disk record; lastError is a transient field
+  // not on ProjectMeta per spec, so we cast to allow it.
+  const next = {
     ...meta,
     status,
     lastError: errorMessage ?? null,
