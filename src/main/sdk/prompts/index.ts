@@ -42,3 +42,5 @@ import { outlinePrompt } from './outline.js'
 registerPrompt(outlinePrompt)
 import { regeneratePrompt } from './regenerate.js'
 registerPrompt(regeneratePrompt)
+import { slideSystemPrompt } from './slide-system.js'
+registerPrompt(slideSystemPrompt)
