@@ -76,8 +76,9 @@ export function FineTunePage() {
 
   const slidesList = Object.values(pptGen.slides)
   const isRunning = pptGen.phase === 'running'
-  const iframeSrc = userDataPath
-    ? `file://${userDataPath}/projects/${id}/index.html#${currentId ?? ''}`
+  // Show only the currently selected slide (one slide at a time, like PowerPoint)
+  const iframeSrc = (userDataPath && currentId)
+    ? `file://${userDataPath}/projects/${id}/slides/${currentId}.html`
     : ''
 
   return (
