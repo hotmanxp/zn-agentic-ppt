@@ -9,12 +9,15 @@ import { OutlinePage } from './routes/OutlinePage'
 import { GeneratePage } from './routes/GeneratePage'
 import { FineTunePage } from './routes/FineTunePage'
 import { useSettingsStore } from './stores/settings'
+import { useStageStreamSubscription } from './hooks/useStageStreamSubscription'
 
 const { Header, Content } = Layout
 
 export function App() {
   const load = useSettingsStore(s => s.load)
   useEffect(() => { load() }, [load])
+
+  useStageStreamSubscription()
 
   return (
     <ConfigProvider>
