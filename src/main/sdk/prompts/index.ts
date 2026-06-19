@@ -1,4 +1,5 @@
 import type { PromptSpec, PromptVar } from './types.js'
+import * as settingsFs from '../../fs/settings.js'
 
 /**
  * Replaces {{var}} placeholders. Variables must be declared in `spec`;
@@ -36,6 +37,19 @@ export function registerPrompt(spec: PromptSpec): void {
 
 export function getSpec(id: string): PromptSpec | null {
   return PROMPT_SPECS.find(s => s.id === id) ?? null
+}
+
+/**
+ * Renders a prompt by id. Picks override from settings (if set) or the
+ * spec's default template, then fills declared variables. Throws on
+ * unknown id, undeclared variables, or missing runtime values.
+ */
+export async function renderPrompt(id: string, vars: Record<string, unknown>): Promise<string> {
+  const spec = getSpec(id)
+  if (!spec) throw new Error(`未知 prompt id: ${id}`)
+  const override = await settingsFs.getPromptOverride(id)
+  const template = override ?? spec.defaultTemplate
+  return fillTemplate(template, vars, spec.variables)
 }
 
 import { outlinePrompt } from './outline.js'
