@@ -68,6 +68,11 @@ export class GenerationRunner {
         canUseTool: async () => ({ behavior: 'allow' } as any),
         disallowedTools: ['Bash'],
         maxTurns: 3,
+        // Forward MCP servers so the SDK injects their tools into the
+        // model context. Without this, custom tools (e.g. AskUserQuestion
+        // registered by BriefAgent) won't be visible to the LLM and it
+        // will skip them and emit final JSON directly.
+        ...(this.opts.mcpServers ? { mcpServers: this.opts.mcpServers } : {}),
       },
     })
     try {
