@@ -4,7 +4,7 @@ import { Input, App as AntdApp } from 'antd'
 import { api } from '../lib/api'
 import { ProjectStepper } from '../components/ProjectStepper'
 import { StageNav } from '../components/StageNav'
-import { useOutlineStore } from '../stores/outline'
+import { StageStreamBar } from '../components/StageStreamBar'
 
 const { TextArea } = Input
 
@@ -14,8 +14,6 @@ export function CollectEditor() {
   const { message } = AntdApp.useApp()
   const [topic, setTopic] = useState('')
   const [source, setSource] = useState('')
-  const [loading, setLoading] = useState(false)
-  const generate = useOutlineStore(s => s.generate)
 
   useEffect(() => {
     (async () => {
@@ -25,17 +23,11 @@ export function CollectEditor() {
     })()
   }, [id])
 
+  const [streaming, setStreaming] = useState(false)
   const onNext = async () => {
     if (!source.trim()) { message.warning('请先粘贴内容'); return }
-    setLoading(true)
-    try {
-      await generate(id, topic, source)
-      nav(`/projects/${id}/outline`)
-    } catch (e: any) {
-      message.error(e.message ?? '生成大纲失败')
-    } finally {
-      setLoading(false)
-    }
+    await api.stage.collectSave(id, topic, source)
+    setStreaming(true)
   }
 
   return (
@@ -60,10 +52,18 @@ export function CollectEditor() {
           />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <small style={{ color: '#9ca3af' }}>字符数：{source.length} · 约 3-5 秒生成大纲</small>
+          {streaming ? (
+            <StageStreamBar
+              kind="outline"
+              projectId={id}
+              onDone={() => nav(`/projects/${id}/outline`)}
+            />
+          ) : (
+            <small style={{ color: '#9ca3af' }}>字符数：{source.length} · 约 30 秒生成大纲</small>
+          )}
         </div>
       </div>
-      <StageNav projectId={id} current="collect" canNext={source.trim().length > 0} onNext={onNext} nextLabel={loading ? '生成中...' : '下一步：生成大纲'} />
+      <StageNav projectId={id} current="collect" canNext={source.trim().length > 0 && !streaming} onNext={onNext} nextLabel="下一步：生成大纲" />
     </div>
   )
 }
