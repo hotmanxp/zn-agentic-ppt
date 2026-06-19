@@ -77,7 +77,7 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
   let cancelled = false
   const next = (): OrchestratorSlide | undefined => {
     if (opts.signal?.aborted) return undefined
-    return slides.find(s => s.status === 'pending')
+    return slides.find(s => s.status === 'pending' || s.status === 'layout')
   }
 
   const onProgress = (slide: OrchestratorSlide) => {
