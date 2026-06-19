@@ -6,7 +6,6 @@ import { Projects } from './routes/Projects'
 import { Settings } from './routes/Settings'
 import { CollectEditor } from './routes/CollectEditor'
 import { OutlinePage } from './routes/OutlinePage'
-import { GeneratePage } from './routes/GeneratePage'
 import { FineTunePage } from './routes/FineTunePage'
 import { useSettingsStore } from './stores/settings'
 import { useStageStreamSubscription } from './hooks/useStageStreamSubscription'
@@ -41,7 +40,6 @@ export function App() {
                 <Route path="/projects/:id" element={<Navigate to="collect" replace />} />
                 <Route path="/projects/:id/collect" element={<CollectEditor />} />
                 <Route path="/projects/:id/outline" element={<OutlinePage />} />
-                <Route path="/projects/:id/generate" element={<GeneratePage />} />
                 <Route path="/projects/:id/fine-tune" element={<FineTunePage />} />
                 <Route path="/settings" element={<Settings />} />
               </Routes>
