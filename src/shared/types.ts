@@ -16,10 +16,24 @@ export interface ProjectMeta {
 }
 
 export interface ProjectDetail extends ProjectMeta {
+  // Legacy
   html: string | null
   htmlSize: number | null
   lastGeneratedAt: number | null
   lastError: string | null
+  // Stage 1
+  source: string | null
+  // Stage 2 (structured; ProjectMeta.outline remains legacy markdown)
+  structuredOutline: Outline | null
+  // Stage 3
+  style: StyleSettings | null
+  slides: Array<{
+    id: string
+    html: string
+    layout?: 1 | 2 | 3 | 4 | 5
+    status: 'done' | 'failed'
+    error?: string
+  }>
 }
 
 export type LLMProvider = 'anthropic' | 'openai' | 'custom'
