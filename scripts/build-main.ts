@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { build } from 'esbuild'
-import { rm } from 'node:fs/promises'
+import { rm, cp, readFile, writeFile } from 'node:fs/promises'
 
 await rm('dist/main', { recursive: true, force: true })
 await build({
@@ -27,4 +27,14 @@ await build({
   sourcemap: true,
   loader: { '.ts': 'ts' },
 })
-console.log('Main + preload built.')
+
+// Post-build: copy vendor next to the bundle and rewrite the import path.
+// Source uses `../../../vendor/sdk.mjs` (3 levels up from src/main/sdk/).
+// Bundle lives at dist/main/index.js (2 levels deep from project root).
+// So the runtime path needs to be `vendor/sdk.mjs` (relative to dist/main/).
+await cp('vendor', 'dist/main/vendor', { recursive: true })
+const bundlePath = 'dist/main/index.js'
+let content = await readFile(bundlePath, 'utf8')
+content = content.replace(/from"\.\.\/\.\.\/\.\.\/vendor\/sdk\.mjs"/g, 'from"vendor/sdk.mjs"')
+await writeFile(bundlePath, content)
+console.log('Main + preload built; vendor copied; SDK path rewritten.')
