@@ -118,3 +118,56 @@ export async function setProjectStatus(id: string, status: ProjectStatus, errorM
   }
   await writeFile(metaPath, JSON.stringify(next, null, 2))
 }
+
+// --- New: per-slide file layout ---
+
+export interface SlideFile {
+  id: string
+  /** Per-slide HTML content (typically a single <section>). */
+  html: string
+}
+
+function slidesDir(id: string): string {
+  return join(getProjectsDir(), id, 'slides')
+}
+
+export async function writeProjectFramework(id: string, html: string): Promise<void> {
+  const dir = join(getProjectsDir(), id)
+  const tmp = join(dir, 'index.html.tmp')
+  const final = join(dir, 'index.html')
+  await writeFile(tmp, html)
+  await rename(tmp, final)
+}
+
+export async function readProjectFramework(id: string): Promise<string | null> {
+  const p = join(getProjectsDir(), id, 'index.html')
+  if (!existsSync(p)) return null
+  return readFile(p, 'utf8')
+}
+
+export async function writeProjectSlide(id: string, slideId: string, html: string): Promise<void> {
+  const dir = slidesDir(id)
+  await mkdir(dir, { recursive: true })
+  // Sanitize: slideId is already constrained to our id format; defensive guard
+  const safe = slideId.replace(/[^a-zA-Z0-9_-]/g, '_')
+  await writeFile(join(dir, `${safe}.html`), html)
+}
+
+export async function readProjectSlide(id: string, slideId: string): Promise<string | null> {
+  const safe = slideId.replace(/[^a-zA-Z0-9_-]/g, '_')
+  const p = join(slidesDir(id), `${safe}.html`)
+  if (!existsSync(p)) return null
+  return readFile(p, 'utf8')
+}
+
+export async function listProjectSlides(id: string): Promise<string[]> {
+  const dir = slidesDir(id)
+  if (!existsSync(dir)) return []
+  const entries = await readdir(dir)
+  return entries.filter(f => f.endsWith('.html')).map(f => f.replace(/\.html$/, ''))
+}
+
+export async function clearProjectSlides(id: string): Promise<void> {
+  const dir = slidesDir(id)
+  if (existsSync(dir)) await rm(dir, { recursive: true, force: true })
+}
