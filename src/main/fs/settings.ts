@@ -37,3 +37,30 @@ export async function setSettings(settings: Settings): Promise<void> {
   await mkdir(dirname(p), { recursive: true })
   await writeFile(p, JSON.stringify(settings, null, 2))
 }
+
+export async function getPromptOverride(id: string): Promise<string | null> {
+  const s = await getSettings()
+  return s.prompts?.[id] ?? null
+}
+
+export async function setPromptOverride(id: string, template: string): Promise<void> {
+  const s = await getSettings()
+  const prompts = { ...(s.prompts ?? {}), [id]: template }
+  await setSettings({ ...s, prompts })
+}
+
+export async function resetPromptOverride(id: string): Promise<void> {
+  const s = await getSettings()
+  const prompts = { ...(s.prompts ?? {}) }
+  delete prompts[id]
+  await setSettings({ ...s, prompts })
+}
+
+export async function listPromptOverrides(): Promise<Record<string, string>> {
+  const s = await getSettings()
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(s.prompts ?? {})) {
+    if (typeof v === 'string') out[k] = v
+  }
+  return out
+}

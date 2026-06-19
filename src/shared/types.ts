@@ -49,6 +49,8 @@ export interface Settings {
   llm: LLMSettings
   ui: { theme: 'light' | 'dark' }
   paths: { projectsDir: string }
+  /** Optional per-prompt overrides keyed by prompt id. Undefined / missing key = use spec default. */
+  prompts?: Record<string, string>
 }
 
 export type AppErrorCode =
