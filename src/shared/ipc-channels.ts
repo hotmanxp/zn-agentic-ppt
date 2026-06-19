@@ -25,6 +25,7 @@ export const IPC = {
   // Stage 1-4 (renderer → main, invoke)
   STAGE_COLLECT_SAVE: 'stage:collect-save',
   STAGE_OUTLINE_GENERATE: 'stage:outline-generate',
+  STAGE_OUTLINE_READ: 'stage:outline-read',
   STAGE_OUTLINE_UPDATE: 'stage:outline-update',
   STAGE_SLIDE_ADD: 'stage:slide-add',
   STAGE_SLIDE_DELETE: 'stage:slide-delete',

@@ -10,6 +10,7 @@ import * as settingsFs from '../fs/settings.js'
 import { getProjectDir } from '../fs/paths.js'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { randomUUID } from 'node:crypto'
 import type { OutlineSlide, StyleSettings } from '../../shared/types.js'
 
 function broadcast(channel: string, payload: unknown) {
@@ -99,6 +100,21 @@ export function registerStageIPC() {
 
   ipcMain.handle(IPC.STAGE_OUTLINE_UPDATE, async (_, { id, slideId, patch }: { id: string; slideId: string; patch: any }) => {
     return await outlineFs.updateSlide(id, slideId, patch)
+  })
+
+  ipcMain.handle(IPC.STAGE_OUTLINE_READ, async (_, { id }: { id: string }) => {
+    const outline = await outlineFs.readOutline(id)
+    if (!outline) return null
+    // Backfill missing slide ids (legacy data + LLM output without id field)
+    let mutated = false
+    for (const s of outline.slides) {
+      if (!s.id) {
+        ;(s as any).id = randomUUID()
+        mutated = true
+      }
+    }
+    if (mutated) await outlineFs.writeOutline(id, outline)
+    return outline
   })
 
   ipcMain.handle(IPC.STAGE_SLIDE_ADD, async (_, { id }: { id: string }) => {

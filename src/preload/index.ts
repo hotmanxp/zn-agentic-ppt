@@ -33,6 +33,8 @@ const api = {
       ipcRenderer.invoke(IPC.STAGE_COLLECT_SAVE, { id, topic, source }),
     outlineGenerate: (id: string) =>
       ipcRenderer.invoke(IPC.STAGE_OUTLINE_GENERATE, { id }),
+    outlineRead: (id: string) =>
+      ipcRenderer.invoke(IPC.STAGE_OUTLINE_READ, { id }),
     outlineUpdate: (id: string, slideId: string, patch: any) =>
       ipcRenderer.invoke(IPC.STAGE_OUTLINE_UPDATE, { id, slideId, patch }),
     slideAdd: (id: string) => ipcRenderer.invoke(IPC.STAGE_SLIDE_ADD, { id }),

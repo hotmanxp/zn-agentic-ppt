@@ -43,6 +43,7 @@ export interface BridgeApi {
   stage: {
     collectSave(id: string, topic: string, source: string): Promise<void>
     outlineGenerate(id: string): Promise<{ phase: 'done'; slides: OutlineSlide[] } | { phase: 'cancelled' }>
+    outlineRead(id: string): Promise<{ slides: OutlineSlide[]; generatedAt: number } | null>
     outlineCancel(id: string): Promise<{ ok: boolean }>
     onOutlineStream(cb: (e: StageStreamEvent) => void): () => void
     onSlideRegenStream(cb: (e: StageStreamEvent) => void): () => void

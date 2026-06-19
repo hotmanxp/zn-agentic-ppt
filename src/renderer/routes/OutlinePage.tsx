@@ -13,23 +13,29 @@ export function OutlinePage() {
   const { id = '' } = useParams()
   const nav = useNavigate()
   const { message } = AntdApp.useApp()
-  const { outline, generate, updateSlide, addSlide, deleteSlide } = useOutlineStore()
+  const { outline, generate, updateSlide, addSlide, deleteSlide, setOutline } = useOutlineStore()
   const [localOutline, setLocalOutline] = useState<Outline | null>(outline)
   const [streaming, setStreaming] = useState(false)
 
   useEffect(() => { setLocalOutline(outline) }, [outline])
 
-  // Load existing outline from main (read from project meta hasOutline + need read IPC)
+  // Load outline from disk on mount (and when projectId changes)
   useEffect(() => {
-    if (!localOutline) {
-      // Try to read source — if exists, regenerate outline
-      // (For MVP, if user comes back here without outline, ask them to go back to Stage 1)
-      // Fallback: navigate to Stage 1 if no outline
-      api.project.get(id).then(p => {
-        if (!p?.hasOutline) nav(`/projects/${id}/collect`)
-      })
-    }
-  }, [id, localOutline, nav])
+    let cancelled = false
+    api.stage.outlineRead(id).then(o => {
+      if (cancelled) return
+      if (o) {
+        setOutline(o.slides, o.generatedAt)
+        setLocalOutline({ slides: o.slides, generatedAt: o.generatedAt })
+      } else {
+        api.project.get(id).then(p => {
+          if (cancelled) return
+          if (!p?.hasOutline) nav(`/projects/${id}/collect`)
+        })
+      }
+    })
+    return () => { cancelled = true }
+  }, [id, nav])
 
   if (!localOutline) return null
 
