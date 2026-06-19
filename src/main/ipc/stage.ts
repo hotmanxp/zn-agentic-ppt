@@ -76,6 +76,11 @@ export function registerStageIPC() {
       return { phase: 'cancelled' as const }
     }
     const parsed = extractFirstJsonObject<{ slides: OutlineSlide[] }>(buffer)
+    console.log(`[outline:${id}] parsed ${JSON.stringify(parsed).length} chars, slides=${parsed.slides?.length ?? '?'}`)
+    if (!Array.isArray(parsed.slides) || parsed.slides.length === 0) {
+      console.log(`[outline:${id}] LLM buffer (first 500 chars): ${buffer.slice(0, 500)}`)
+      throw new Error('LLM 返回的 JSON 不包含 slides 数组或 slides 为空')
+    }
     await outlineFs.writeOutline(id, { slides: parsed.slides, generatedAt: Date.now() })
     return { phase: 'done' as const, slides: parsed.slides }
   })
