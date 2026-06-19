@@ -45,6 +45,13 @@ interface PptGenerationState {
     total: number
     cancelled: boolean
   }) => void
+  applyDetail: (projectId: string, slides: Array<{
+    id: string
+    html: string
+    layout?: 1 | 2 | 3 | 4 | 5
+    status: 'done' | 'failed'
+    error?: string
+  }>) => void
   reset: () => void
 }
 
@@ -108,6 +115,30 @@ export const usePptGenerationStore = create<PptGenerationState>((set, get) => ({
       completed: e.completed,
       failed: e.failed,
       total: e.total,
+    })
+  },
+
+  applyDetail: (projectId, slides) => {
+    const next: Record<string, PptSlide> = {}
+    slides.forEach((s, i) => {
+      next[s.id] = {
+        id: s.id,
+        title: s.id,
+        status: s.status,
+        html: s.html,
+        error: s.error,
+        layout: s.layout ?? ((i % 5) + 1) as 1 | 2 | 3 | 4 | 5,
+      }
+    })
+    const completed = slides.filter(s => s.status === 'done').length
+    const failed = slides.filter(s => s.status === 'failed').length
+    set({
+      projectId,
+      slides: next,
+      phase: 'done',
+      completed,
+      failed,
+      total: slides.length,
     })
   },
 
