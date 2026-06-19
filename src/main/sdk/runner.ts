@@ -55,7 +55,14 @@ export class GenerationRunner {
       options: {
         cwd: this.opts.cwd,
         model: this.opts.settings.llm.model,
-        systemPrompt: this.opts.systemPrompt ?? buildSystemPrompt(this.opts.topic, this.opts.outline),
+        // IMPORTANT: use `appendSystemPrompt` not `systemPrompt`. The SDK's
+        // default system prompt contains the tool list (with descriptions
+        // + JSON schemas) for any MCP servers passed via mcpServers. If we
+        // override with `systemPrompt`, the LLM never sees our custom
+        // tools (e.g. AskUserQuestion) and skips them — emitting the final
+        // JSON directly without asking. `appendSystemPrompt` adds our text
+        // on top of the SDK default, preserving the tool list.
+        appendSystemPrompt: this.opts.systemPrompt ?? buildSystemPrompt(this.opts.topic, this.opts.outline),
         env: {
           ANTHROPIC_BASE_URL: this.opts.settings.llm.baseUrl,
           ANTHROPIC_AUTH_TOKEN: this.opts.settings.llm.apiKey,
