@@ -50,7 +50,24 @@ export function computePageCountEst(durationMinutes: number): number {
 }
 
 export function validateBrief(raw: unknown): ProjectBrief {
-  // 见第 5 节
+  // 5 字段必填 + 长度裁剪 + pageCountEst 重算
+  // (完整代码在 src/shared/brief.ts;此处仅声明签名)
+  const r = raw as Partial<ProjectBrief>
+  if (typeof r.name !== 'string' || !r.name.trim()) throw new AppError({ code: 'PARSE', message: 'brief.name 缺失' })
+  if (typeof r.audience !== 'string') throw new AppError({ code: 'PARSE', message: 'brief.audience 缺失' })
+  if (typeof r.durationMinutes !== 'number' || r.durationMinutes < 1 || r.durationMinutes > 120) {
+    throw new AppError({ code: 'PARSE', message: 'brief.durationMinutes 必须是 1-120 的整数' })
+  }
+  if (typeof r.content !== 'string' || !r.content.trim()) throw new AppError({ code: 'PARSE', message: 'brief.content 缺失' })
+  if (typeof r.style !== 'string') throw new AppError({ code: 'PARSE', message: 'brief.style 缺失' })
+  return {
+    name: r.name.trim().slice(0, 30),
+    audience: r.audience.trim().slice(0, 80),
+    durationMinutes: Math.round(r.durationMinutes),
+    pageCountEst: computePageCountEst(r.durationMinutes),
+    content: r.content.trim().slice(0, 800),
+    style: r.style.trim().slice(0, 80),
+  }
 }
 ```
 
@@ -117,7 +134,6 @@ export function validateBrief(raw: unknown): ProjectBrief {
 
 ```ts
 import { tool, createSdkMcpServer } from '../../../vendor/sdk.mjs'
-import { z } from 'zod'  // 或用 JSON Schema inline
 
 interface AskUserRequest {
   qid: string
@@ -130,8 +146,9 @@ interface AskUserRequest {
   }>
 }
 
+// 多 question 一次提交:value 是 { [question: string]: label | label[] }
 type AskAnswer =
-  | { cancelled: false; value: string | string[] }
+  | { cancelled: false; value: Record<string, string | string[]> }
   | { cancelled: true; reason?: 'user_cancelled' | 'max_turns' }
 
 class BriefAgent {
@@ -156,7 +173,7 @@ class BriefAgent {
     const askUserQuestionTool = tool(
       'AskUserQuestion',
       'Ask the user 1-4 multiple-choice questions to fill missing information.',
-      zodAskUserQuestionSchema,
+      askUserQuestionJsonSchema,
       async (args) => {
         if (this.turns >= 2) {
           return { content: [{ type: 'text', text: JSON.stringify({ cancelled: true, reason: 'max_turns' }) }] }
@@ -217,26 +234,31 @@ class BriefAgent {
 }
 ```
 
-### 5.2 askUserQuestionSchema (Zod)
+### 5.2 askUserQuestionSchema (JSON Schema, 决策:不引入 zod)
+
+**决策**:vendor SDK 的 `tool()` 接受 Zod raw shape 或 JSON Schema,本设计**统一用 JSON Schema inline**,不新增 zod 依赖。理由:JSON Schema 在浏览器端 antd Modal 也更易做结构展示;项目本身没有 zod 依赖。
 
 ```ts
 const askUserQuestionSchema = {
-  questions: {
-    type: 'array',
-    minItems: 1,
-    maxItems: 4,
-    items: {
-      type: 'object',
-      required: ['question', 'header', 'options', 'multiSelect'],
-      properties: {
-        question: { type: 'string' },
-        header: { type: 'string', maxLength: 12 },
-        options: {
-          type: 'array',
-          minItems: 2,
-          maxItems: 4,
-          items: {
-            type: 'object',
+  type: 'object',
+  required: ['questions'],
+  properties: {
+    questions: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 4,
+      items: {
+        type: 'object',
+        required: ['question', 'header', 'options', 'multiSelect'],
+        properties: {
+          question: { type: 'string' },
+          header: { type: 'string', maxLength: 12 },
+          options: {
+            type: 'array',
+            minItems: 2,
+            maxItems: 4,
+            items: {
+              type: 'object',
             required: ['label'],
             properties: {
               label: { type: 'string' },
@@ -251,8 +273,6 @@ const askUserQuestionSchema = {
 }
 ```
 
-(若 vendor SDK 接受 JSON Schema inline 更好,可避免引入 zod 依赖。实测时确认。)
-
 ### 5.3 useBriefOptimizeStore
 
 ```ts
@@ -264,7 +284,11 @@ interface BriefOptimizeState {
   error: string | null
   start: (id: string, hint: ProjectBrief | null) => Promise<void>
   cancel: () => Promise<void>
-  answer: (qid: string, value: string | string[] | null) => void  // null = 取消
+  // answer.value 形态:
+  //   - null                                    → 用户点「取消」
+  //   - { [question: string]: string | string[] } → 多 question 时统一提交
+  //     (value 是 label 字符串; multiSelect 题目是 label 数组)
+  answer: (qid: string, value: Record<string, string | string[]> | null) => void
   applyDone: (brief: ProjectBrief) => void
   applyError: (e: AppError) => void
   reset: () => void
