@@ -11,6 +11,15 @@ export interface RunnerOptions {
   runId: string
   /** Test-only: provide canned events instead of calling real SDK */
   sdkEvents?: any[]
+  /**
+   * Override the default system prompt. If omitted, falls back to
+   * `buildSystemPrompt(topic, outline)` (HTML PPT generation).
+   * Stage 2 outline generation and Stage 4 slide regeneration pass their
+   * own prompt builders here.
+   */
+  systemPrompt?: string
+  /** Override the user message sent to the model. Default: 'Generate the PPT.' */
+  userMessage?: string
   onEvent: (msg: any) => void
   onProgress: (info: { phase: string; current: number }) => void
   onDone: (info: { html: string; durationMs: number }) => void
@@ -40,11 +49,11 @@ export class GenerationRunner {
       return
     }
     this.query = sdkQuery({
-      prompt: 'Generate the PPT.',
+      prompt: this.opts.userMessage ?? 'Generate the PPT.',
       options: {
         cwd: this.opts.cwd,
         model: this.opts.settings.llm.model,
-        systemPrompt: buildSystemPrompt(this.opts.topic, this.opts.outline),
+        systemPrompt: this.opts.systemPrompt ?? buildSystemPrompt(this.opts.topic, this.opts.outline),
         env: {
           ANTHROPIC_BASE_URL: this.opts.settings.llm.baseUrl,
           ANTHROPIC_AUTH_TOKEN: this.opts.settings.llm.apiKey,

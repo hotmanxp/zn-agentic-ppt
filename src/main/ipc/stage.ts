@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { IPC } from '../../shared/ipc-channels.js'
 import { GenerationRunner } from '../sdk/runner.js'
+import { buildOutlinePrompt } from '../sdk/outline-prompt.js'
 import { buildRegeneratePrompt } from '../sdk/regenerate-prompt.js'
 import { spliceSlide } from '../sdk/html-splice.js'
 import * as outlineFs from '../fs/outline.js'
@@ -45,6 +46,8 @@ export function registerStageIPC() {
     let buffer = ''
     const runner = new GenerationRunner({
       cwd, topic: project.topic, outline: source, settings, runId: id,
+      systemPrompt: buildOutlinePrompt(project.topic, source),
+      userMessage: '请根据以上指令生成大纲。',
       onEvent: (m: any) => broadcast(IPC.STAGE_OUTLINE_STREAM, { id, message: m }),
       onProgress: () => {},
       onDone: ({ html }) => { buffer = html },
@@ -85,6 +88,8 @@ export function registerStageIPC() {
     let buffer = ''
     const runner = new GenerationRunner({
       cwd, topic: target.title, outline: prompt, settings, runId: id,
+      systemPrompt: prompt,
+      userMessage: '请根据以上指令重新生成该页。',
       onEvent: () => {}, onProgress: () => {},
       onDone: ({ html, durationMs }) => {
         buffer = html
