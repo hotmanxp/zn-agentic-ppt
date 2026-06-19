@@ -35,9 +35,12 @@ export const IPC = {
   // Stage 1-4 cancellation (renderer → main, invoke)
   STAGE_OUTLINE_CANCEL: 'stage:outline-cancel',
   STAGE_SLIDE_CANCEL: 'stage:slide-cancel',
+  STAGE_HTML_CANCEL: 'stage:html-cancel',
 
   // Main → renderer (push)
   HTML_SLIDE_UPDATED: 'html:slide-updated',
   STAGE_OUTLINE_STREAM: 'stage:outline-stream',
   STAGE_SLIDE_REGENERATE_STREAM: 'stage:slide-regenerate-stream',
+  STAGE_HTML_SLIDE_READY: 'stage:html-slide-ready',
+  STAGE_HTML_GENERATE_DONE: 'stage:html-generate-done',
 } as const

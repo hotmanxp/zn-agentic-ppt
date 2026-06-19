@@ -20,6 +20,9 @@ function broadcast(channel: string, payload: unknown) {
 
 import { registry } from './stage-stream-registry.js'
 import { extractFirstJsonObject } from '../sdk/json-extract.js'
+import { runOrchestrator } from '../sdk/ppt-orchestrator.js'
+
+const pptHtmlCancels = new Map<string, AbortController>()
 
 async function loadSettingsAndOutline(id: string) {
   const settings = await settingsFs.getSettings()
@@ -154,27 +157,68 @@ export function registerStageIPC() {
   })
 
   ipcMain.handle(IPC.STAGE_HTML_GENERATE, async (_, { id }: { id: string }) => {
-    const { settings, outline, project } = await loadSettingsAndOutline(id)
+    const { settings, outline } = await loadSettingsAndOutline(id)
     const style = await outlineFs.readStyle(id)
     const cwd = getProjectDir(id)
-    let buffer = ''
-    const runner = new GenerationRunner({
-      cwd, topic: project.topic, outline: JSON.stringify({ outline, style }), settings, runId: id,
-      onEvent: (m: any) => broadcast(IPC.SDK_EVENT, { runId: id, message: m }),
-      onProgress: (info) => broadcast(IPC.GENERATION_PROGRESS, { runId: id, ...info }),
-      onDone: async ({ html, durationMs }) => {
-        buffer = html
-        await projectFs.writeProjectHtml(id, buffer)
-        await projectFs.setProjectStatus(id, 'generated')
-        broadcast(IPC.GENERATION_DONE, { runId: id, html: buffer, durationMs })
-      },
-      onError: async ({ error }) => {
-        await projectFs.setProjectStatus(id, 'failed', error.message)
-        broadcast(IPC.GENERATION_ERROR, { runId: id, error })
-      },
-    })
-    await runner.run()
-    return { html: buffer, durationMs: 0 }
+    const ac = new AbortController()
+    pptHtmlCancels.set(id, ac)
+    await projectFs.clearProjectSlides(id)
+    try {
+      const result = await runOrchestrator({
+        projectId: id,
+        outline,
+        settings,
+        style,
+        cwd,
+        concurrency: 3,
+        maxRetries: 2,
+        signal: ac.signal,
+        onSlideReady: async (slide) => {
+          broadcast(IPC.STAGE_HTML_SLIDE_READY, {
+            projectId: id,
+            slideId: slide.id,
+            status: slide.status,
+            html: slide.html,
+            error: slide.error,
+            durationMs: slide.durationMs,
+            retries: slide.retries,
+            completed: 0, // filled by orchestrator state — recompute on renderer
+            total: outline.slides.length,
+          })
+        },
+        onProgress: ({ completed, total }) => {
+          broadcast(IPC.GENERATION_PROGRESS, { runId: id, phase: 'streaming', current: completed, total })
+        },
+      })
+      await projectFs.setProjectStatus(id, result.failed > 0 ? 'failed' : 'generated')
+      broadcast(IPC.STAGE_HTML_GENERATE_DONE, {
+        projectId: id,
+        completed: result.completed,
+        failed: result.failed,
+        total: result.total,
+        cancelled: result.cancelled,
+      })
+      pptHtmlCancels.delete(id)
+      if (result.cancelled) return { phase: 'cancelled' as const, completed: result.completed, failed: result.failed, total: result.total }
+      return { phase: 'done' as const, completed: result.completed, failed: result.failed, total: result.total }
+    } catch (e: any) {
+      pptHtmlCancels.delete(id)
+      await projectFs.setProjectStatus(id, 'failed', e?.message)
+      broadcast(IPC.STAGE_HTML_GENERATE_DONE, {
+        projectId: id, completed: 0, failed: outline.slides.length, total: outline.slides.length, cancelled: false,
+      })
+      return { phase: 'error' as const, completed: 0, failed: outline.slides.length, total: outline.slides.length, error: e?.message }
+    }
+  })
+
+  ipcMain.handle(IPC.STAGE_HTML_CANCEL, async (_, { id }: { id: string }) => {
+    const ac = pptHtmlCancels.get(id)
+    if (ac) {
+      ac.abort()
+      pptHtmlCancels.delete(id)
+      return { ok: true }
+    }
+    return { ok: false }
   })
 
   ipcMain.handle(IPC.STAGE_STYLE_SAVE, async (_, { id, style }: { id: string; style: StyleSettings }) => {

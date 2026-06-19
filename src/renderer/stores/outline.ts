@@ -13,7 +13,7 @@ interface OutlineStore {
   addSlide: (id: string) => Promise<{ slides: OutlineSlide[]; generatedAt: number }>
   deleteSlide: (id: string, slideId: string) => Promise<{ slides: OutlineSlide[]; generatedAt: number }>
   regenerate: (id: string, slideId: string) => Promise<void>
-  generateHtml: (id: string) => Promise<string>
+  generateHtml: (id: string) => Promise<void>
   saveStyle: (id: string, style: StyleSettings) => Promise<void>
 }
 
@@ -55,8 +55,7 @@ export const useOutlineStore = create<OutlineStore>((set, get) => ({
     await api.stage.slideRegenerate(id, slideId)
   },
   generateHtml: async (id) => {
-    const r = await api.stage.htmlGenerate(id)
-    return r.html
+    await api.stage.htmlGenerate(id)
   },
   saveStyle: async (id, style) => {
     await api.stage.styleSave(id, style)

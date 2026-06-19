@@ -46,8 +46,11 @@ const api = {
     onSlideUpdated: (cb: (e: any) => void) => subscribe(IPC.HTML_SLIDE_UPDATED, cb),
     onOutlineStream: (cb: (e: any) => void) => subscribe(IPC.STAGE_OUTLINE_STREAM, cb),
     onSlideRegenStream: (cb: (e: any) => void) => subscribe(IPC.STAGE_SLIDE_REGENERATE_STREAM, cb),
+    onHtmlSlideReady: (cb: (e: any) => void) => subscribe(IPC.STAGE_HTML_SLIDE_READY, cb),
+    onHtmlGenerateDone: (cb: (e: any) => void) => subscribe(IPC.STAGE_HTML_GENERATE_DONE, cb),
     outlineCancel: (id: string) => ipcRenderer.invoke(IPC.STAGE_OUTLINE_CANCEL, { id }),
     slideCancel: (id: string, slideId: string) => ipcRenderer.invoke(IPC.STAGE_SLIDE_CANCEL, { id, slideId }),
+    htmlCancel: (id: string) => ipcRenderer.invoke(IPC.STAGE_HTML_CANCEL, { id }),
   },
 }
 
