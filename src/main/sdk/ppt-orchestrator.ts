@@ -1,5 +1,7 @@
 import { GenerationRunner } from './runner.js'
-import { buildSystemPrompt, buildSlidePrompt, generateFrameworkHtml, generateLayoutHtml, layoutForIndex } from './ppt-framework.js'
+import { renderPrompt } from './prompts/index.js'
+import { LAYOUT_DIRECTIONS } from './prompts/slide-user.js'
+import { generateFrameworkHtml, generateLayoutHtml, layoutForIndex } from './ppt-framework.js'
 import * as projectFs from '../fs/projects.js'
 import type { Outline, Settings, SlideLayoutKind } from '../../shared/types.js'
 
@@ -119,15 +121,29 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
         // System prompt: persona + hard rules + deck-wide palette/font.
         // Per-slide context (cwd, slide index, file paths) goes in the
         // user prompt so the system prompt stays static across turns.
-        const systemPrompt = buildSystemPrompt({
-          globalStyle: opts.outline.globalStyle,
+        const systemPrompt = await renderPrompt('slide-system', {
+          'globalStyle.primaryColor': opts.outline.globalStyle?.primaryColor ?? '',
+          'globalStyle.accentColor': opts.outline.globalStyle?.accentColor ?? '',
+          'globalStyle.fontFamily': opts.outline.globalStyle?.fontFamily ?? '',
+          'globalStyle.aspectRatio': opts.outline.globalStyle?.aspectRatio ?? '',
         })
-        const userMessage = buildSlidePrompt(target, others, {
+        const targetBullets = (target.bullets ?? []).map((b, i) => `  ${i + 1}. ${b}`).join('\n')
+        const targetNotes = target.notes ? `备注: ${target.notes}` : ''
+        const othersTitles = others.map(o => `- ${o.title}`).join('\n')
+        const styleBlock = opts.style ? `【全局样式参数】\n${JSON.stringify(opts.style, null, 2)}\n` : ''
+        const layoutDirection = LAYOUT_DIRECTIONS[slide.layout - 1] ?? ''
+        const userMessage = await renderPrompt('slide-user', {
           cwd: opts.cwd,
-          slideIndex,
-          totalSlides: opts.outline.slides.length,
-          style: opts.style,
-          layout: slide.layout,
+          slideIndex: slideIndex.toString(),
+          totalSlides: opts.outline.slides.length.toString(),
+          slideId: target.id,
+          layout: slide.layout.toString(),
+          'target.title': target.title,
+          targetBullets,
+          targetNotes,
+          othersTitles,
+          styleBlock,
+          layoutDirection,
         })
         const startedAt = Date.now()
 
