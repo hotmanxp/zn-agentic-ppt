@@ -5,8 +5,10 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import {
   listProjects, getProject, createProject, updateProject, deleteProject, writeProjectHtml,
+  readProjectBrief, writeProjectBrief,
 } from '../../../../src/main/fs/projects.js'
 import { setProjectsDirForTest } from '../../../../src/main/fs/paths.js'
+import type { ProjectBrief } from '../../../../src/shared/types.js'
 
 describe('fs/projects', () => {
   let dir: string
@@ -147,5 +149,34 @@ describe('getProject merge', () => {
       layout: 'minimal',
       fontFamily: '-apple-system, sans-serif',
     })
+  })
+})
+
+describe('brief persistence', () => {
+  let dir: string
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'znap-brief-'))
+    setProjectsDirForTest(dir)
+  })
+  afterEach(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('readProjectBrief returns null when brief.json missing', async () => {
+    const meta = await createProject('topic')
+    expect(await readProjectBrief(meta.id)).toBeNull()
+  })
+
+  it('writeProjectBrief + readProjectBrief round-trips', async () => {
+    const meta = await createProject('topic')
+    const brief: ProjectBrief = { name: 'n', audience: 'a', durationMinutes: 30, pageCountEst: 20, content: 'c', style: 's' }
+    await writeProjectBrief(meta.id, brief)
+    expect(await readProjectBrief(meta.id)).toEqual(brief)
+  })
+
+  it('getProject includes brief when brief.json exists', async () => {
+    const meta = await createProject('topic')
+    const brief: ProjectBrief = { name: 'n', audience: 'a', durationMinutes: 30, pageCountEst: 20, content: 'c', style: 's' }
+    await writeProjectBrief(meta.id, brief)
+    const detail = await getProject(meta.id)
+    expect(detail?.brief).toEqual(brief)
   })
 })

@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, rm, writeFile, rename } from 'node:fs/promise
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import type { ProjectDetail, ProjectMeta, ProjectStatus, Outline, StyleSettings } from '../../shared/types.js'
+import type { ProjectDetail, ProjectMeta, ProjectStatus, Outline, StyleSettings, ProjectBrief } from '../../shared/types.js'
 import { DEFAULT_STYLE } from '../../shared/types.js'
 import { getProjectsDir } from './paths.js'
 
@@ -49,6 +49,15 @@ export async function getProject(id: string): Promise<ProjectDetail | null> {
       source = await readFile(sourcePath, 'utf8')
     }
 
+    // Stage 1: brief
+    let brief: ProjectBrief | null = null
+    const briefPath = join(dir, 'brief.json')
+    if (existsSync(briefPath)) {
+      try {
+        brief = JSON.parse(await readFile(briefPath, 'utf8')) as ProjectBrief
+      } catch { /* corrupt — leave null */ }
+    }
+
     // Stage 2: structured outline
     let structuredOutline: Outline | null = null
     const outlineJsonPath = join(dir, 'outline.json')
@@ -86,6 +95,7 @@ export async function getProject(id: string): Promise<ProjectDetail | null> {
       lastGeneratedAt: html ? meta.updatedAt : null,
       lastError: null,
       source,
+      brief,
       structuredOutline,
       style,
       slides,
@@ -223,4 +233,23 @@ export async function listProjectSlides(id: string): Promise<string[]> {
 export async function clearProjectSlides(id: string): Promise<void> {
   const dir = slidesDir(id)
   if (existsSync(dir)) await rm(dir, { recursive: true, force: true })
+}
+
+// --- Stage 1: brief ---
+
+export async function readProjectBrief(id: string): Promise<ProjectBrief | null> {
+  const p = join(getProjectsDir(), id, 'brief.json')
+  if (!existsSync(p)) return null
+  try {
+    return JSON.parse(await readFile(p, 'utf8')) as ProjectBrief
+  } catch { return null }
+}
+
+export async function writeProjectBrief(id: string, brief: ProjectBrief): Promise<void> {
+  const dir = join(getProjectsDir(), id)
+  await mkdir(dir, { recursive: true })
+  const tmp = join(dir, 'brief.json.tmp')
+  const final = join(dir, 'brief.json')
+  await writeFile(tmp, JSON.stringify(brief, null, 2))
+  await rename(tmp, final)
 }
