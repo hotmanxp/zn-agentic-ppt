@@ -133,6 +133,8 @@ export class BriefAgent {
       // (which is what the vendor SDK's code-agent profile would otherwise
       // drive it to do).
       disallowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebFetch', 'WebSearch'],
+      // Need ≥ 3 assistant turns: ask → answer → ask → answer → final JSON
+      maxTurns: 10,
       sdkEvents: this.opts.sdkEvents,
       onEvent: () => {},
       onProgress: () => {},

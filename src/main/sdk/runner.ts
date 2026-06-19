@@ -29,6 +29,12 @@ export interface RunnerOptions {
    * tool instead of exploring the working directory.
    */
   disallowedTools?: string[]
+  /**
+   * Override SDK's default `maxTurns`. Default: 3. BriefAgent needs
+   * ≥ 3 assistant turns (ask → answer → ask → answer → final JSON)
+   * plus headroom for retries, so it passes 10.
+   */
+  maxTurns?: number
   onEvent: (msg: any) => void
   onProgress: (info: { phase: string; current: number }) => void
   onDone: (info: { html: string; durationMs: number }) => void
@@ -84,7 +90,7 @@ export class GenerationRunner {
         // via disallowedTools below for safety.
         canUseTool: async () => ({ behavior: 'allow' } as any),
         disallowedTools: this.opts.disallowedTools ?? ['Bash'],
-        maxTurns: 3,
+        maxTurns: this.opts.maxTurns ?? 3,
         // Forward MCP servers so the SDK injects their tools into the
         // model context. Without this, custom tools (e.g. AskUserQuestion
         // registered by BriefAgent) won't be visible to the LLM and it
