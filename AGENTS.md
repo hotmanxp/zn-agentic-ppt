@@ -13,7 +13,7 @@
 
 **PPT 生成调用链**：
 ```
-FineTunePage.onStart()
+GeneratePage 自动调用 / 「重新生成」按钮
   → pptGen.start(id)                    [renderer store]
   → api.stage.htmlGenerate(id)          [IPC]
   → stage.ts runOrchestrator({...})     [main]
@@ -22,6 +22,7 @@ FineTunePage.onStart()
   → sdkQuery({prompt, options:{cwd, model, systemPrompt, ...}})
   → SDK agent 用 Read/Write 工具编辑 slides/<id>.html
   → 主进程读回文件，broadcast STAGE_HTML_SLIDE_READY
+  → renderer 收到，store 更新，SlidePreview 实时渲染
 ```
 
 ---
@@ -42,12 +43,28 @@ bun run dev             # 或 bun run start
 
 ---
 
+## PPT Wizard 用户旅程
+
+```
+Welcome → ProjectEditor → CollectEditor → OutlineEditor
+                                              ↓ onNext (大纲 OK)
+                                          GeneratePage  ← ← 自动开跑 LLM
+                                              ↓ 完成后用户手动操作
+                                          ProjectEditor (回到项目列表)
+```
+
+**注意**：当前 OutlinePage 的 `onNext` 跳到 `/generate`（不是 `/fine-tune`）。`GeneratePage` 内嵌 SlideThumbnailStrip + SlidePreview，完成后**不**自动跳页，用户在 GeneratePage 里继续操作（重新生成 / 单页重生成 / 选择大纲再编辑）。
+
+`/fine-tune` 路由还在，但当前 wizard 不直接跳过去。
+
+---
+
 ## 常用命令
 
 | 命令 | 作用 |
 |------|------|
 | `bun run typecheck` | 跑两套 tsc（main + renderer），不能有错 |
-| `bun run test` | vitest，12 文件 / 69 测试 |
+| `bun run test` | vitest，12 文件 / 101 测试（2026-06-19） |
 | `bun run build:main` | 重建主进程 bundle（改了 src/main/** 后必跑）|
 | `bun run build` | 主进程 + renderer 一起构建 |
 | `bun run dev` | vite + tsc watch + electron（开发用）|
