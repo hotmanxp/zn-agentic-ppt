@@ -75,7 +75,15 @@ export function registerStageIPC() {
     if (registry.isCancelled(key)) {
       return { phase: 'cancelled' as const }
     }
-    const parsed = extractFirstJsonObject<{ slides: OutlineSlide[] }>(buffer)
+    let parsed: { slides: OutlineSlide[] }
+    try {
+      parsed = extractFirstJsonObject<{ slides: OutlineSlide[] }>(buffer)
+    } catch (e: any) {
+      console.log(`[outline:${id}] JSON extraction failed: ${e?.message ?? e}`)
+      console.log(`[outline:${id}] LLM buffer (first 800 chars): ${buffer.slice(0, 800)}`)
+      console.log(`[outline:${id}] LLM buffer length: ${buffer.length}`)
+      throw e
+    }
     console.log(`[outline:${id}] parsed ${JSON.stringify(parsed).length} chars, slides=${parsed.slides?.length ?? '?'}`)
     if (!Array.isArray(parsed.slides) || parsed.slides.length === 0) {
       console.log(`[outline:${id}] LLM buffer (first 500 chars): ${buffer.slice(0, 500)}`)
