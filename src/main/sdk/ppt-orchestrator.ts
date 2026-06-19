@@ -1,6 +1,5 @@
 import { GenerationRunner } from './runner.js'
 import { buildSlidePrompt, generateFrameworkHtml, generateLayoutHtml } from './ppt-framework.js'
-import { buildSlideMcpServer } from './slide-mcp-tools.js'
 import * as projectFs from '../fs/projects.js'
 import type { OutlineSlide, Settings } from '../../shared/types.js'
 
@@ -97,7 +96,7 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
         onProgress(slide)
         const target = opts.outline.slides.find(s => s.id === slide.id)!
         const others = opts.outline.slides.filter(s => s.id !== slide.id).map(s => ({ id: s.id, title: s.title }))
-        const systemPrompt = buildSlidePrompt(target, others, opts.style)
+        const systemPrompt = buildSlidePrompt(target, others, opts.style) + '\n\n请用你的文件工具 (Read / Write / Edit) 直接编辑 slides/' + slide.id + '.html 文件。空模板已经存在，请覆盖。完成后用文字回复 done。'
         const startedAt = Date.now()
 
         let success = false
@@ -113,7 +112,6 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
               runId: `${opts.projectId}:${slide.id}`,
               signal: opts.signal,
             })
-            await projectFs.writeProjectSlide(opts.projectId, slide.id, html)
             slide.html = html
             slide.status = 'done'
             slide.durationMs = Date.now() - startedAt

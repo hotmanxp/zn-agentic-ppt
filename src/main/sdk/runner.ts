@@ -62,14 +62,12 @@ export class GenerationRunner {
         },
         permissionMode: 'bypassPermissions',
         allowDangerouslySkipPermissions: true,
-        canUseTool: async (name: string) => {
-          if (typeof name === 'string' && name.startsWith('mcp__slides__')) {
-            return { behavior: 'allow' } as any
-          }
-          return { behavior: 'deny', message: 'tools disabled' } as any
-        },
-        ...(this.opts.mcpServers ? { mcpServers: this.opts.mcpServers } : {}),
-        maxTurns: 1,
+        // Let the agent use its built-in Read / Write / Edit tools. The
+        // runner's onDone fires after the agent finishes (whether it
+        // edited files via Write or just chatted). We only block Bash
+        // for safety via disallowedTools below.
+        disallowedTools: ['Bash'],
+        maxTurns: 3,
       },
     })
     try {
