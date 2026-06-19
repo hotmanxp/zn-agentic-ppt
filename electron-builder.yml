@@ -1,0 +1,14 @@
+appId: dev.zn-agentic-ppt.app
+productName: ZN Agentic PPT
+directories:
+  output: out
+files:
+  - dist/**/*
+  - package.json
+mac:
+  category: public.app-category.productivity
+  target: [dmg, zip]
+win:
+  target: [nsis, zip]
+linux:
+  target: [AppImage, deb]
