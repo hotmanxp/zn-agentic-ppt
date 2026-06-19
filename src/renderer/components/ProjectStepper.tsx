@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useLoadProjectDetail } from '../hooks/useLoadProjectDetail.js'
 
 const STAGES = [
   { key: 'collect', label: '内容收集', path: 'collect' },
@@ -8,6 +9,7 @@ const STAGES = [
 ] as const
 
 export function ProjectStepper({ projectId }: { projectId: string }) {
+  useLoadProjectDetail()
   const loc = useLocation()
   const current = loc.pathname.split('/').pop() ?? ''
   const currentIdx = STAGES.findIndex(s => s.path === current)
