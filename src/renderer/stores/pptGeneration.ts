@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { api } from '../lib/api.js'
 
-export type SlideStatus = 'pending' | 'generating' | 'done' | 'failed'
+export type SlideStatus = 'pending' | 'layout' | 'generating' | 'done' | 'failed'
 
 export interface PptSlide {
   id: string
@@ -27,7 +27,7 @@ interface PptGenerationState {
   applySlideReady: (e: {
     projectId: string
     slideId: string
-    status: 'done' | 'failed'
+    status: 'layout' | 'done' | 'failed'
     html?: string
     error?: string
     durationMs?: number

@@ -30,6 +30,7 @@ export function generateFrameworkHtml(opts: {
     ul { font-size: 24px; line-height: 1.6; }
     li { margin: 8px 0; }
     .slide-meta { color: #94a3b8; font-size: 14px; margin-top: 24px; }
+    ${generateLayoutStyles()}
   </style>
 </head>
 <body>
@@ -88,6 +89,49 @@ ${JSON.stringify(others, null, 2)}
 ${style ? `用户选择的样式参数:\n${JSON.stringify(style, null, 2)}\n` : ''}只输出 <section data-id="${target.id}">...</section> 片段，不要包含 <html>/<head>/<body>。
 使用语义化 class（如 h1/h2/ul/li/p），保持简洁、可在浅色或深色背景上阅读。
 不要写 <style> 或 <script>。`
+}
+
+/**
+ * Generates a layout-only HTML section for a slide from its outline.
+ * No LLM call — uses title + bullet count to produce a placeholder
+ * skeleton that the user sees immediately. Per-bullet placeholders
+ * are rendered as antd Skeleton-style gray bars (pure CSS, no JS).
+ */
+export function generateLayoutHtml(slide: OutlineSlide): string {
+  const bullets = slide.bullets?.length ? slide.bullets : Array(Math.max(2, 1)).fill('')
+  const bulletHtml = bullets.map(() => `
+    <li class="skel-bullet"></li>`).join('')
+  return `<section data-id="${slide.id}" data-status="layout">
+  <div class="slide-title">${escapeHtml(slide.title || '未命名')}</div>
+  <ul class="slide-bullets">${bulletHtml}
+  </ul>
+  <div class="slide-notes skel-notes"></div>
+</section>`
+}
+
+export function generateLayoutStyles(): string {
+  return `
+    .slide-title { font-size: 36px; font-weight: 700; color: #f5f7ff; margin: 0 0 24px; }
+    .slide-bullets { list-style: none; padding: 0; margin: 0; }
+    .slide-bullets li.skel-bullet {
+      height: 16px; width: 80%; margin: 14px 0;
+      background: linear-gradient(90deg, #1f2a44 0%, #2a3658 50%, #1f2a44 100%);
+      background-size: 200% 100%;
+      border-radius: 4px;
+      animation: skel-pulse 1.4s ease-in-out infinite;
+    }
+    .slide-bullets li.skel-bullet:nth-child(2) { width: 65%; }
+    .slide-bullets li.skel-bullet:nth-child(3) { width: 72%; }
+    .slide-bullets li.skel-bullet:nth-child(4) { width: 55%; }
+    .slide-notes.skel-notes {
+      height: 12px; width: 50%; margin-top: 32px;
+      background: linear-gradient(90deg, #1f2a44 0%, #2a3658 50%, #1f2a44 100%);
+      background-size: 200% 100%;
+      border-radius: 4px;
+      animation: skel-pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes skel-pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  `
 }
 
 function escapeHtml(s: string): string {

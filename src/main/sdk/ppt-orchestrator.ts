@@ -1,9 +1,9 @@
 import { GenerationRunner } from './runner.js'
-import { buildSlidePrompt, generateFrameworkHtml } from './ppt-framework.js'
+import { buildSlidePrompt, generateFrameworkHtml, generateLayoutHtml } from './ppt-framework.js'
 import * as projectFs from '../fs/projects.js'
 import type { OutlineSlide, Settings } from '../../shared/types.js'
 
-export type SlideStatus = 'pending' | 'generating' | 'done' | 'failed'
+export type SlideStatus = 'pending' | 'layout' | 'generating' | 'done' | 'failed'
 
 export interface OrchestratorSlide {
   id: string
@@ -50,6 +50,7 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
   const slides: OrchestratorSlide[] = opts.outline.slides.map(s => ({
     id: s.id, title: s.title, status: 'pending',
   }))
+  const total = slides.length
 
   // Step 1: write the framework HTML up front
   const frameworkHtml = generateFrameworkHtml({
@@ -58,8 +59,19 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
   })
   await projectFs.writeProjectFramework(opts.projectId, frameworkHtml)
 
+  // Step 1b: write N layout placeholders immediately (no LLM)
+  // so the user sees structure while the LLM fills content.
+  for (const target of opts.outline.slides) {
+    const layoutHtml = generateLayoutHtml(target)
+    await projectFs.writeProjectSlide(opts.projectId, target.id, layoutHtml)
+    const slide = slides.find(s => s.id === target.id)!
+    slide.status = 'layout'
+    slide.html = layoutHtml
+    await opts.onSlideReady?.(slide)
+    opts.onProgress?.({ completed: 0, total, slideId: target.id, status: 'layout' })
+  }
+
   // Step 2: simple worker pool
-  const total = slides.length
   let completed = 0
   let failed = 0
   let cancelled = false

@@ -36,6 +36,7 @@ export const IPC = {
   STAGE_OUTLINE_CANCEL: 'stage:outline-cancel',
   STAGE_SLIDE_CANCEL: 'stage:slide-cancel',
   STAGE_HTML_CANCEL: 'stage:html-cancel',
+  STAGE_LAYOUT_GENERATE: 'stage:layout-generate',
 
   // Main → renderer (push)
   HTML_SLIDE_UPDATED: 'html:slide-updated',

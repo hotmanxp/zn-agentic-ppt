@@ -21,6 +21,7 @@ function broadcast(channel: string, payload: unknown) {
 import { registry } from './stage-stream-registry.js'
 import { extractFirstJsonObject } from '../sdk/json-extract.js'
 import { runOrchestrator } from '../sdk/ppt-orchestrator.js'
+import { generateLayoutsOnly } from '../sdk/ppt-layout.js'
 
 const pptHtmlCancels = new Map<string, AbortController>()
 
@@ -219,6 +220,12 @@ export function registerStageIPC() {
       return { ok: true }
     }
     return { ok: false }
+  })
+
+  ipcMain.handle(IPC.STAGE_LAYOUT_GENERATE, async (_, { id }: { id: string }) => {
+    const { outline } = await loadSettingsAndOutline(id)
+    if (!outline.slides.length) throw new Error('No outline slides to layout')
+    return await generateLayoutsOnly(id, outline.slides)
   })
 
   ipcMain.handle(IPC.STAGE_STYLE_SAVE, async (_, { id, style }: { id: string; style: StyleSettings }) => {

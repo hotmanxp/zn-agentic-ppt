@@ -3,6 +3,7 @@ import type { PptSlide } from '../stores/pptGeneration.js'
 
 const STATUS_COLOR: Record<string, string> = {
   pending: '#d1d5db',
+  layout: '#94a3b8',
   generating: '#fbbf24',
   done: '#22c55e',
   failed: '#ef4444',
@@ -10,6 +11,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 const STATUS_LABEL: Record<string, string> = {
   pending: '未开始',
+  layout: '布局',
   generating: '生成中…',
   done: '已完成',
   failed: '失败',

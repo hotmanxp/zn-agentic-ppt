@@ -51,11 +51,12 @@ export interface BridgeApi {
     slideDelete(id: string, slideId: string): Promise<{ slides: OutlineSlide[] }>
     slideRegenerate(id: string, slideId: string): Promise<{ phase: 'done'; html: string; durationMs: number } | { phase: 'cancelled' }>
     slideCancel(id: string, slideId: string): Promise<{ ok: boolean }>
+    layoutGenerate(id: string): Promise<{ written: number; total: number }>
     htmlGenerate(id: string): Promise<{ phase: 'done' | 'cancelled' | 'error'; completed: number; failed: number; total: number; error?: string }>
     htmlCancel(id: string): Promise<{ ok: boolean }>
     styleSave(id: string, style: StyleSettings): Promise<void>
     onSlideUpdated(cb: (e: { projectId: string; slideId: string; html: string }) => void): () => void
-    onHtmlSlideReady(cb: (e: { projectId: string; slideId: string; status: 'done' | 'failed'; html?: string; error?: string; durationMs?: number; retries?: number; completed: number; total: number }) => void): () => void
+    onHtmlSlideReady(cb: (e: { projectId: string; slideId: string; status: 'layout' | 'done' | 'failed'; html?: string; error?: string; durationMs?: number; retries?: number; completed: number; total: number }) => void): () => void
     onHtmlGenerateDone(cb: (e: { projectId: string; completed: number; failed: number; total: number; cancelled: boolean }) => void): () => void
   }
 }
