@@ -1,5 +1,16 @@
 import type { ProjectMeta, ProjectDetail, Settings, OutlineSlide, StyleSettings } from '@shared/types'
 
+export interface StageStreamEvent {
+  runId: string
+  projectId: string
+  slideId?: string
+  kind: 'outline' | 'slide-regen'
+  phase: 'streaming' | 'done' | 'cancelled' | 'error'
+  chars: number
+  html?: string
+  error?: { code: string; message: string; retryable: boolean }
+}
+
 export interface BridgeApi {
   project: {
     list(): Promise<ProjectMeta[]>
@@ -29,15 +40,18 @@ export interface BridgeApi {
   }
   stage: {
     collectSave(id: string, topic: string, source: string): Promise<void>
-    outlineGenerate(id: string): Promise<{ slides: OutlineSlide[] }>
+    outlineGenerate(id: string): Promise<{ phase: 'done'; slides: OutlineSlide[] } | { phase: 'cancelled' }>
+    outlineCancel(id: string): Promise<{ ok: boolean }>
+    onOutlineStream(cb: (e: StageStreamEvent) => void): () => void
+    onSlideRegenStream(cb: (e: StageStreamEvent) => void): () => void
     outlineUpdate(id: string, slideId: string, patch: Partial<OutlineSlide>): Promise<{ slides: OutlineSlide[] }>
     slideAdd(id: string): Promise<{ slides: OutlineSlide[] }>
     slideDelete(id: string, slideId: string): Promise<{ slides: OutlineSlide[] }>
-    slideRegenerate(id: string, slideId: string): Promise<{ html: string; durationMs: number }>
+    slideRegenerate(id: string, slideId: string): Promise<{ phase: 'done' | 'cancelled'; html: string; durationMs: number }>
+    slideCancel(id: string, slideId: string): Promise<{ ok: boolean }>
     htmlGenerate(id: string): Promise<{ html: string; durationMs: number }>
     styleSave(id: string, style: StyleSettings): Promise<void>
     onSlideUpdated(cb: (e: { projectId: string; slideId: string; html: string }) => void): () => void
-    onOutlineStream(cb: (e: any) => void): () => void
   }
 }
 

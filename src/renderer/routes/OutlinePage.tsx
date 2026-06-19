@@ -55,8 +55,10 @@ export function OutlinePage() {
   const onRegenerate = async () => {
     setGenerating(true)
     try {
-      const slides = await api.stage.outlineGenerate(id)
-      setLocalOutline({ slides: slides.slides, generatedAt: Date.now() })
+      const r = await api.stage.outlineGenerate(id)
+      if (r.phase === 'done') {
+        setLocalOutline({ slides: r.slides, generatedAt: Date.now() })
+      }
     } catch (e: any) {
       message.error(e.message ?? '重新生成失败')
     } finally {

@@ -27,8 +27,11 @@ export const useOutlineStore = create<OutlineStore>((set, get) => ({
   generate: async (id, topic, source) => {
     await api.stage.collectSave(id, topic, source)
     const r = await api.stage.outlineGenerate(id)
-    set({ outline: { slides: r.slides, generatedAt: Date.now() } })
-    return r.slides
+    if (r.phase === 'done') {
+      set({ outline: { slides: r.slides, generatedAt: Date.now() } })
+      return r.slides
+    }
+    return []
   },
   updateSlide: async (id, slideId, patch) => {
     const r = await api.stage.outlineUpdate(id, slideId, patch)

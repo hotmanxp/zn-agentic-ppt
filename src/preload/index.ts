@@ -45,6 +45,9 @@ const api = {
       ipcRenderer.invoke(IPC.STAGE_STYLE_SAVE, { id, style }),
     onSlideUpdated: (cb: (e: any) => void) => subscribe(IPC.HTML_SLIDE_UPDATED, cb),
     onOutlineStream: (cb: (e: any) => void) => subscribe(IPC.STAGE_OUTLINE_STREAM, cb),
+    onSlideRegenStream: (cb: (e: any) => void) => subscribe(IPC.STAGE_SLIDE_REGENERATE_STREAM, cb),
+    outlineCancel: (id: string) => ipcRenderer.invoke(IPC.STAGE_OUTLINE_CANCEL, { id }),
+    slideCancel: (id: string, slideId: string) => ipcRenderer.invoke(IPC.STAGE_SLIDE_CANCEL, { id, slideId }),
   },
 }
 
