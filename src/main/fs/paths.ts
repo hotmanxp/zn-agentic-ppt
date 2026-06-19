@@ -3,12 +3,15 @@ import { join } from 'node:path'
 
 const DATA_ROOT = join(homedir(), '.zn-agentic-ppt')
 
+let testProjectsDir: string | null = null
+export function setProjectsDirForTest(dir: string): void { testProjectsDir = dir }
+
 export function getDataRoot(): string {
   return DATA_ROOT
 }
 
 export function getProjectsDir(): string {
-  return join(DATA_ROOT, 'projects')
+  return testProjectsDir ?? join(DATA_ROOT, 'projects')
 }
 
 export function getSettingsPath(): string {
