@@ -4,18 +4,17 @@ import type { OutlineSlide } from '@shared/types'
 const { TextArea } = Input
 
 export function SlideEditor({
-  slide, onChange, onRegenerate, regenerating,
+  slide, onChange, onRegenerate,
 }: {
   slide: OutlineSlide
   onChange: (patch: Partial<OutlineSlide>) => void
   onRegenerate: () => void
-  regenerating: boolean
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ padding: '12px 16px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <small style={{ color: '#6b7280' }}>编辑当前页</small>
-        <Button type="primary" size="small" onClick={onRegenerate} loading={regenerating}>↻ 重生成此页</Button>
+        <Button type="primary" size="small" onClick={onRegenerate}>↻ 重生成此页</Button>
       </div>
       <div style={{ flex: 1, padding: 20, overflow: 'auto' }}>
         <div style={{ marginBottom: 14 }}>

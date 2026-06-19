@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { ProjectStepper } from '../components/ProjectStepper'
 import { SlideList } from '../components/SlideList'
 import { SlideEditor } from '../components/SlideEditor'
+import { StageStreamBar } from '../components/StageStreamBar'
 import { StyleControls } from '../components/StyleControls'
 import { useOutlineStore } from '../stores/outline'
 import { DEFAULT_STYLE, type OutlineSlide, type StyleSettings } from '@shared/types'
@@ -17,7 +18,7 @@ export function FineTunePage() {
   const [currentId, setCurrentId] = useState<string | null>(null)
   const [html, setHtml] = useState<string | null>(null)
   const [style, setStyle] = useState<StyleSettings>(DEFAULT_STYLE)
-  const [regenerating, setRegenerating] = useState(false)
+  const [streaming, setStreaming] = useState(false)
   const previewRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
@@ -53,19 +54,6 @@ export function FineTunePage() {
     updateSlide(id, currentId, patch)
   }
 
-  const onRegenerateSlide = async () => {
-    if (!currentId) return
-    setRegenerating(true)
-    try {
-      await api.stage.slideRegenerate(id, currentId)
-      // The onSlideUpdated listener will refresh HTML
-    } catch (e: any) {
-      message.error(e.message ?? '重生成失败')
-    } finally {
-      setRegenerating(false)
-    }
-  }
-
   const onStyleChange = (patch: Partial<StyleSettings>) => {
     const next = { ...style, ...patch }
     setStyle(next)
@@ -88,9 +76,22 @@ export function FineTunePage() {
             <SlideEditor
               slide={current}
               onChange={onSlideChange}
-              onRegenerate={onRegenerateSlide}
-              regenerating={regenerating}
+              onRegenerate={() => setStreaming(true)}
             />
+          )}
+          {streaming && currentId && (
+            <div style={{ padding: '12px 20px' }}>
+              <StageStreamBar
+                kind="slide-regen"
+                projectId={id}
+                slideId={currentId}
+                label="正在重生成该页…"
+                onDone={() => {
+                  setStreaming(false)
+                  message.success('页面已更新')
+                }}
+              />
+            </div>
           )}
           <div style={{ padding: '0 20px 20px' }}>
             <StyleControls style={style} onChange={onStyleChange} />
