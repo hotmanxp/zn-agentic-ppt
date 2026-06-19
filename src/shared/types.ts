@@ -23,6 +23,7 @@ export interface ProjectDetail extends ProjectMeta {
   lastError: string | null
   // Stage 1
   source: string | null
+  brief: ProjectBrief | null
   // Stage 2 (structured; ProjectMeta.outline remains legacy markdown)
   structuredOutline: Outline | null
   // Stage 3
@@ -117,4 +118,13 @@ export const DEFAULT_STYLE: StyleSettings = {
   primaryColor: '#1677ff',
   layout: 'minimal',
   fontFamily: '-apple-system, sans-serif',
+}
+
+export interface ProjectBrief {
+  name: string            // PPT 名称(≤ 30 字)
+  audience: string        // 演讲对象和场景(≤ 80 字)
+  durationMinutes: number // 演讲时长(主输入,1-120 整数)
+  pageCountEst: number    // 估算页数(派生,只读;clamp(round(durationMinutes/1.5), 3, 60))
+  content: string         // 演讲内容(精炼 source,Markdown bullets,≤ 800 字)
+  style: string           // 整体视觉风格(≤ 80 字)
 }
