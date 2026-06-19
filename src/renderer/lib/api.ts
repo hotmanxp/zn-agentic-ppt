@@ -1,4 +1,4 @@
-import type { ProjectMeta, ProjectDetail, Settings, OutlineSlide, StyleSettings } from '@shared/types'
+import type { ProjectMeta, ProjectDetail, Settings, OutlineSlide, StyleSettings, ProjectBrief } from '@shared/types'
 
 export type { OutlineSlide }
 
@@ -73,6 +73,14 @@ export interface BridgeApi {
     onSlideUpdated(cb: (e: { projectId: string; slideId: string; html: string }) => void): () => void
     onHtmlSlideReady(cb: (e: { projectId: string; slideId: string; status: 'layout' | 'done' | 'failed'; html?: string; error?: string; durationMs?: number; retries?: number; layout?: 1 | 2 | 3 | 4 | 5; completed: number; total: number }) => void): () => void
     onHtmlGenerateDone(cb: (e: { projectId: string; completed: number; failed: number; total: number; cancelled: boolean }) => void): () => void
+  }
+  brief: {
+    optimize(id: string, hint: ProjectBrief | null): Promise<{ ok: boolean }>
+    cancel(): Promise<{ ok: boolean }>
+    answer(qid: string, value: { cancelled: boolean; value?: Record<string, string | string[]> }): Promise<{ ok: boolean }>
+    onAskUserQuestion(cb: (e: { projectId: string; qid: string; turn: 1 | 2; questions: Array<{ question: string; header: string; options: Array<{ label: string; description?: string }>; multiSelect: boolean }> }) => void): () => void
+    onDone(cb: (e: { projectId: string; brief: ProjectBrief }) => void): () => void
+    onError(cb: (e: { projectId: string; error: { code: string; message: string; retryable: boolean } }) => void): () => void
   }
 }
 
