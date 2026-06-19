@@ -10,6 +10,7 @@ import { GeneratePage } from './routes/GeneratePage'
 import { FineTunePage } from './routes/FineTunePage'
 import { useSettingsStore } from './stores/settings'
 import { useStageStreamSubscription } from './hooks/useStageStreamSubscription'
+import { useHtmlGenerationSubscription } from './hooks/useHtmlGenerationSubscription'
 
 const { Header, Content } = Layout
 
@@ -18,6 +19,7 @@ export function App() {
   useEffect(() => { load() }, [load])
 
   useStageStreamSubscription()
+  useHtmlGenerationSubscription()
 
   return (
     <ConfigProvider>

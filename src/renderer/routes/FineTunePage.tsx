@@ -1,132 +1,141 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Button, App as AntdApp } from 'antd'
+import { Button, Progress, App as AntdApp } from 'antd'
 import { api } from '../lib/api'
 import { ProjectStepper } from '../components/ProjectStepper'
-import { SlideList } from '../components/SlideList'
-import { SlideEditor } from '../components/SlideEditor'
-import { StageStreamBar } from '../components/StageStreamBar'
+import { SlideThumbnailStrip } from '../components/SlideThumbnailStrip'
 import { StyleControls } from '../components/StyleControls'
+import { usePptGenerationStore } from '../stores/pptGeneration'
 import { useOutlineStore } from '../stores/outline'
-import { DEFAULT_STYLE, type OutlineSlide, type StyleSettings } from '@shared/types'
+import { DEFAULT_STYLE, type StyleSettings } from '@shared/types'
 
 export function FineTunePage() {
   const { id = '' } = useParams()
   const nav = useNavigate()
   const { message } = AntdApp.useApp()
-  const { outline, updateSlide, saveStyle } = useOutlineStore()
-  const [currentId, setCurrentId] = useState<string | null>(null)
-  const [html, setHtml] = useState<string | null>(null)
+  const outline = useOutlineStore(s => s.outline)
   const [style, setStyle] = useState<StyleSettings>(DEFAULT_STYLE)
-  const [streaming, setStreaming] = useState(false)
+  const [userDataPath, setUserDataPath] = useState<string>('')
   const previewRef = useRef<HTMLIFrameElement>(null)
+  const pptGen = usePptGenerationStore()
+  const [currentId, setCurrentId] = useState<string | null>(null)
+  const [iframeKey, setIframeKey] = useState(0)
 
   useEffect(() => {
-    if (!outline) {
-      api.project.get(id).then(p => {
-        if (!p?.hasHtml) nav(`/projects/${id}/collect`)
-      })
-    } else if (!currentId && outline.slides[0]) {
+    api.system.userDataPath().then(setUserDataPath)
+  }, [])
+
+  // Initialize the pptGeneration store from outline on mount / outline change
+  useEffect(() => {
+    if (outline && outline.slides.length > 0 && pptGen.projectId !== id) {
+      pptGen.initialize(id, outline.slides.map(s => ({ id: s.id, title: s.title })))
       setCurrentId(outline.slides[0].id)
     }
-  }, [outline, currentId, id, nav])
+  }, [outline, id])
 
-  // Load initial HTML
+  // Force iframe reload when a new slide becomes ready
   useEffect(() => {
-    if (id) {
-      api.project.get(id).then(p => { if (p?.html) setHtml(p.html) })
+    setIframeKey(k => k + 1)
+  }, [pptGen.completed])
+
+  // When user clicks a thumbnail, scroll the iframe to that slide via hash
+  useEffect(() => {
+    if (!currentId || !previewRef.current) return
+    const w = previewRef.current.contentWindow
+    if (w) w.location.hash = currentId
+  }, [currentId, iframeKey])
+
+  const onStart = async () => {
+    if (!outline || outline.slides.length === 0) {
+      message.warning('请先完成大纲')
+      nav(`/projects/${id}/outline`)
+      return
     }
-  }, [id])
+    await pptGen.start(id)
+    const phase = usePptGenerationStore.getState().phase
+    if (phase === 'error') {
+      message.error('生成失败，请重试')
+    } else if (phase === 'done') {
+      const c = usePptGenerationStore.getState().completed
+      const t = usePptGenerationStore.getState().total
+      message.success(`完成 ${c}/${t}`)
+    } else if (phase === 'cancelled') {
+      message.info(`已取消`)
+    }
+  }
 
-  // Listen for slide updates
-  useEffect(() => {
-    const u = api.stage.onSlideUpdated(({ projectId, slideId, html }: any) => {
-      if (projectId !== id) return
-      setHtml(prev => prev ? spliceHtml(prev, slideId, html) : html)
-      message.success('页面已更新')
-    })
-    return u
-  }, [id, message])
-
-  const onSlideChange = (patch: Partial<OutlineSlide>) => {
-    if (!currentId) return
-    setHtml(h => h)  // optimistic, will refresh on regen
-    updateSlide(id, currentId, patch)
+  const onCancel = async () => {
+    await pptGen.cancel()
   }
 
   const onStyleChange = (patch: Partial<StyleSettings>) => {
     const next = { ...style, ...patch }
     setStyle(next)
-    saveStyle(id, next)  // debounced in real impl
+    useOutlineStore.getState().saveStyle(id, next)
   }
 
-  const current = outline?.slides.find(s => s.id === currentId)
+  const slidesList = Object.values(pptGen.slides)
+  const isRunning = pptGen.phase === 'running'
+  const iframeSrc = userDataPath
+    ? `file://${userDataPath}/projects/${id}/index.html#${currentId ?? ''}`
+    : ''
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
       <ProjectStepper projectId={id} />
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '200px 1fr 1.2fr', background: '#f3f4f6', overflow: 'hidden' }}>
-        <SlideList
-          slides={outline?.slides ?? []}
-          currentId={currentId}
-          onSelect={setCurrentId}
-        />
-        <div style={{ background: '#fff', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {current && (
-            <SlideEditor
-              slide={current}
-              onChange={onSlideChange}
-              onRegenerate={() => setStreaming(true)}
-            />
-          )}
-          {streaming && currentId && (
-            <div style={{ padding: '12px 20px' }}>
-              <StageStreamBar
-                kind="slide-regen"
-                projectId={id}
-                slideId={currentId}
-                label="正在重生成该页…"
-                onDone={() => {
-                  setStreaming(false)
-                  message.success('页面已更新')
-                }}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f3f4f6', overflow: 'hidden' }}>
+        <div style={{ padding: '12px 16px', background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <strong style={{ fontSize: 13 }}>PPT 预览</strong>
+          <Progress
+            percent={pptGen.total > 0 ? Math.round((pptGen.completed / pptGen.total) * 100) : 0}
+            style={{ flex: 1, margin: 0 }}
+            status={pptGen.phase === 'error' ? 'exception' : (pptGen.phase === 'cancelled' ? 'normal' : 'active')}
+          />
+          <small style={{ color: '#6b7280', minWidth: 80, textAlign: 'right' }}>
+            {pptGen.completed} / {pptGen.total} {pptGen.failed > 0 ? `(${pptGen.failed} 失败)` : ''}
+          </small>
+          {isRunning
+            ? <Button danger size="small" onClick={onCancel}>取消</Button>
+            : <Button type="primary" size="small" onClick={onStart}>{pptGen.completed > 0 ? '重新生成' : '开始生成'}</Button>}
+        </div>
+
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+          <SlideThumbnailStrip
+            slides={slidesList}
+            currentId={currentId}
+            onSelect={setCurrentId}
+          />
+
+          <div style={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column', background: '#0b1020', overflow: 'hidden' }}>
+            {slidesList.length === 0 ? (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+                暂无大纲。请先到「第 2 步」编辑大纲。
+              </div>
+            ) : iframeSrc ? (
+              <iframe
+                key={iframeKey}
+                ref={previewRef}
+                src={iframeSrc}
+                style={{ flex: 1, width: '100%', height: '100%', border: 'none', background: '#0b1020' }}
+                sandbox="allow-same-origin allow-scripts"
               />
-            </div>
-          )}
-          <div style={{ padding: '0 20px 20px' }}>
-            <StyleControls style={style} onChange={onStyleChange} />
+            ) : (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+                加载中…
+              </div>
+            )}
+            {isRunning && (
+              <div style={{ position: 'absolute', bottom: 16, right: 16, background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '6px 12px', borderRadius: 6, fontSize: 12 }}>
+                生成中 · {pptGen.completed} / {pptGen.total}
+              </div>
+            )}
           </div>
         </div>
-        <div style={{ background: '#f3f4f6', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '8px 12px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-            <small style={{ color: '#6b7280' }}>👁 预览</small>
-          </div>
-          <div style={{ flex: 1, padding: 24, overflow: 'auto' }}>
-            <iframe ref={previewRef} srcDoc={html ?? ''} style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }} sandbox="allow-same-origin" />
-          </div>
-        </div>
-      </div>
-      <div style={{ padding: '12px 24px', background: '#fff', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between' }}>
-        <Button onClick={() => nav(`/projects/${id}/outline`)}>← 返回大纲</Button>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button onClick={async () => {
-            if (!html) return
-            const blob = new Blob([html], { type: 'text/html' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url; a.download = `${outline?.slides[0]?.title ?? 'ppt'}.html`
-            a.click(); URL.revokeObjectURL(url)
-          }}>⬇ 导出 HTML</Button>
+
+        <div style={{ padding: 12, background: '#fff', borderTop: '1px solid #e5e7eb' }}>
+          <StyleControls style={style} onChange={onStyleChange} />
         </div>
       </div>
     </div>
   )
-}
-
-function spliceHtml(html: string, slideId: string, newSection: string): string {
-  const re = new RegExp(
-    `<section([^>]*)data-id=["']${slideId}["']([^>]*)>([\\s\\S]*?)</section>`,
-    'i',
-  )
-  return re.test(html) ? html.replace(re, newSection) : html
 }
