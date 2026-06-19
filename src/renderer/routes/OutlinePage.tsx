@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { ProjectStepper } from '../components/ProjectStepper'
 import { StageNav } from '../components/StageNav'
 import { OutlineCard } from '../components/OutlineCard'
+import { StageStreamBar } from '../components/StageStreamBar'
 import { useOutlineStore } from '../stores/outline'
 import type { Outline, OutlineSlide } from '@shared/types'
 
@@ -14,7 +15,7 @@ export function OutlinePage() {
   const { message } = AntdApp.useApp()
   const { outline, generate, updateSlide, addSlide, deleteSlide } = useOutlineStore()
   const [localOutline, setLocalOutline] = useState<Outline | null>(outline)
-  const [generating, setGenerating] = useState(false)
+  const [streaming, setStreaming] = useState(false)
 
   useEffect(() => { setLocalOutline(outline) }, [outline])
 
@@ -52,20 +53,6 @@ export function OutlinePage() {
     setLocalOutline(o)
   }
 
-  const onRegenerate = async () => {
-    setGenerating(true)
-    try {
-      const r = await api.stage.outlineGenerate(id)
-      if (r.phase === 'done') {
-        setLocalOutline({ slides: r.slides, generatedAt: Date.now() })
-      }
-    } catch (e: any) {
-      message.error(e.message ?? '重新生成失败')
-    } finally {
-      setGenerating(false)
-    }
-  }
-
   const onNext = async () => {
     if (localOutline.slides.length === 0) { message.warning('至少需要一页'); return }
     nav(`/projects/${id}/generate`)
@@ -93,8 +80,19 @@ export function OutlinePage() {
         onNext={onNext}
         nextLabel="下一步：生成 PPT"
       />
-      <div style={{ position: 'absolute', top: 100, right: 32 }}>
-        <Button onClick={onRegenerate} loading={generating}>↻ 重新生成大纲</Button>
+      <div style={{ position: 'absolute', top: 100, right: 32, width: 360 }}>
+        {streaming ? (
+          <StageStreamBar
+            kind="outline"
+            projectId={id}
+            onDone={(r) => {
+              setLocalOutline({ slides: r.slides ?? [], generatedAt: Date.now() })
+              setStreaming(false)
+            }}
+          />
+        ) : (
+          <Button onClick={() => setStreaming(true)}>↻ 重新生成大纲</Button>
+        )}
       </div>
     </div>
   )
