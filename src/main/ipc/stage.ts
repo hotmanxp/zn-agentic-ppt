@@ -49,15 +49,24 @@ export function registerStageIPC() {
   ipcMain.handle(IPC.STAGE_OUTLINE_GENERATE, async (_, { id }: { id: string }) => {
     const project = await projectFs.getProject(id)
     if (!project) throw new Error('project not found')
+    const brief = project.brief
+    if (!brief) {
+      throw new Error('project has no brief — user must complete Stage 1 优化 first')
+    }
     const source = await outlineFs.readSource(id)
-    if (!source.trim()) throw new Error('empty source')
     const settings = await settingsFs.getSettings()
     const cwd = getProjectDir(id)
     const key = id
     let buffer = ''
     const runner = new GenerationRunner({
-      cwd, topic: project.topic, outline: source, settings, runId: id,
-      systemPrompt: await renderPrompt('outline', { topic: project.topic, source }),
+      cwd, topic: project.topic, outline: brief.name ?? source, settings, runId: id,
+      systemPrompt: await renderPrompt('outline', {
+        briefName: brief.name,
+        briefAudience: brief.audience,
+        briefDurationMinutes: brief.durationMinutes.toString(),
+        briefContent: brief.content,
+        briefStyle: brief.style,
+      }),
       userMessage: '请根据以上指令生成大纲。',
       onEvent: () => {},
       onProgress: (info) => broadcast(IPC.STAGE_OUTLINE_STREAM, {

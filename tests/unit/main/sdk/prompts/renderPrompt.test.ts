@@ -15,14 +15,20 @@ describe('renderPrompt', () => {
 
   it('uses default template when no override set', async () => {
     mockGetPromptOverride.mockResolvedValue(null)
-    const out = await renderPrompt('outline', { topic: 'X', source: 'Y' })
+    const out = await renderPrompt('outline', {
+      briefName: 'X', briefAudience: 'aud', briefDurationMinutes: '30',
+      briefContent: 'Y', briefStyle: 'tech',
+    })
     expect(out).toContain('X')
     expect(out).toContain('Y')
   })
 
   it('uses override template when set', async () => {
-    mockGetPromptOverride.mockResolvedValue('CUSTOM {{topic}}')
-    const out = await renderPrompt('outline', { topic: 'Z', source: 'W' })
+    mockGetPromptOverride.mockResolvedValue('CUSTOM {{briefName}}')
+    const out = await renderPrompt('outline', {
+      briefName: 'Z', briefAudience: 'aud', briefDurationMinutes: '30',
+      briefContent: 'W', briefStyle: 'tech',
+    })
     expect(out).toBe('CUSTOM Z')
   })
 
@@ -33,7 +39,10 @@ describe('renderPrompt', () => {
 
   it('throws when caller omits a variable', async () => {
     mockGetPromptOverride.mockResolvedValue(null)
-    await expect(renderPrompt('outline', { topic: 'X' }))
+    await expect(renderPrompt('outline', {
+      briefName: 'X', briefAudience: 'aud', briefDurationMinutes: '30',
+      briefContent: 'c',
+    }))
       .rejects.toThrowError(/缺值/)
   })
 
