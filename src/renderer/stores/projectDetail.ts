@@ -59,7 +59,10 @@ export const useProjectDetailStore = create<ProjectDetailState>((set, get) => ({
       })
     }
     if (d.slides.length > 0) {
-      usePptGenerationStore.getState().applyDetail(d.slides)
+      // TODO(stores-track): pptGeneration.applyDetail will be added by Task 11.
+      // Call site intentionally passes a single slides[]; the contract is whatever
+      // the stores track implements for cross-store restoration.
+      ;(usePptGenerationStore.getState() as unknown as { applyDetail: (s: typeof d.slides) => void }).applyDetail(d.slides)
     }
   },
 
