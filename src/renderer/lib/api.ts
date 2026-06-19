@@ -1,4 +1,4 @@
-import type { ProjectMeta, ProjectDetail, Settings } from '@shared/types'
+import type { ProjectMeta, ProjectDetail, Settings, OutlineSlide, StyleSettings } from '@shared/types'
 
 export interface BridgeApi {
   project: {
@@ -26,6 +26,18 @@ export interface BridgeApi {
   }
   system: {
     userDataPath(): Promise<string>
+  }
+  stage: {
+    collectSave(id: string, topic: string, source: string): Promise<void>
+    outlineGenerate(id: string): Promise<{ slides: OutlineSlide[] }>
+    outlineUpdate(id: string, slideId: string, patch: Partial<OutlineSlide>): Promise<{ slides: OutlineSlide[] }>
+    slideAdd(id: string): Promise<{ slides: OutlineSlide[] }>
+    slideDelete(id: string, slideId: string): Promise<{ slides: OutlineSlide[] }>
+    slideRegenerate(id: string, slideId: string): Promise<{ html: string; durationMs: number }>
+    htmlGenerate(id: string): Promise<{ html: string; durationMs: number }>
+    styleSave(id: string, style: StyleSettings): Promise<void>
+    onSlideUpdated(cb: (e: { projectId: string; slideId: string; html: string }) => void): () => void
+    onOutlineStream(cb: (e: any) => void): () => void
   }
 }
 
