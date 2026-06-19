@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../../../src/renderer/lib/api.js', () => {
   return {
@@ -16,7 +16,7 @@ vi.mock('../../../../src/renderer/lib/api.js', () => {
 import { useStageStreamStore } from '../../../../src/renderer/stores/stageStream.js'
 import { api } from '../../../../src/renderer/lib/api.js'
 
-const mockedApi = api as any
+const mockedApi = vi.mocked(api)
 
 beforeEach(() => {
   useStageStreamStore.getState().reset()

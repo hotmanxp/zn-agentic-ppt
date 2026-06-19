@@ -44,7 +44,7 @@ test('outline streaming progress bar + cancel button', async () => {
   await page.waitForTimeout(5000)
   const firstText = await page.getByText(/已生成 \d+ 字符/).first().innerText()
   const firstMatch = firstText.match(/(\d+)/)
-  const firstChars = firstMatch ? parseInt(firstMatch[1], 10) : 0
+  const firstChars = firstMatch ? Number.parseInt(firstMatch[1], 10) : 0
   expect(firstChars).toBeGreaterThan(0)
 
   // Click 取消

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Button, Progress, App as AntdApp } from 'antd'
 import { useStageStreamStore, type StreamKind } from '../stores/stageStream.js'
+import type { OutlineSlide } from '../lib/api.js'
 import { HtmlStream } from './HtmlStream.js'
 
 export interface StageStreamBarProps {
@@ -8,7 +9,7 @@ export interface StageStreamBarProps {
   slideId?: string
   kind: StreamKind
   /** Called when phase transitions to 'done'. Receives the start() result. */
-  onDone: (result: { slides?: any[]; html?: string }) => void
+  onDone: (result: { slides?: OutlineSlide[]; html?: string }) => void
   /** Optional label override. */
   label?: string
 }
@@ -43,7 +44,8 @@ export function StageStreamBar({ projectId, slideId, kind, onDone, label }: Stag
         }
       })
     } else {
-      start('slide-regen', projectId, slideId!).then(r => {
+      if (!slideId) return
+      start('slide-regen', projectId, slideId).then(r => {
         if (r.phase === 'done') {
           onDoneRef.current({ html: r.html })
           reset()

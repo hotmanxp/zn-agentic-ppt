@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { registry } from '../../../../src/main/ipc/stage-stream-registry.js'
+import type { GenerationRunner } from '../../../../src/main/sdk/runner.js'
 
-function fakeRunner() {
-  return { interrupt: vi.fn() } as any
+function fakeRunner(): GenerationRunner {
+  return { interrupt: vi.fn() } as unknown as GenerationRunner
 }
 
 beforeEach(() => {

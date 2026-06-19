@@ -50,22 +50,22 @@ export const useStageStreamStore = create<StageStreamState>((set, get) => ({
         }
         set({ phase: 'error', error: 'unknown' })
         return { phase: 'error', error: 'unknown' }
-      } else {
-        const r = await api.stage.slideRegenerate(projectId, slideId!)
-        if (r.phase === 'done') {
-          set({ phase: 'done', html: r.html, chars: r.html.length })
-          return { phase: 'done', html: r.html }
-        }
-        if (r.phase === 'cancelled') {
-          set({ phase: 'cancelled' })
-          return { phase: 'cancelled' }
-        }
-        set({ phase: 'error', error: 'unknown' })
-        return { phase: 'error', error: 'unknown' }
       }
-    } catch (e: any) {
-      set({ phase: 'error', error: e?.message ?? String(e) })
-      return { phase: 'error', error: e?.message }
+      const r = await api.stage.slideRegenerate(projectId, slideId as string)
+      if (r.phase === 'done') {
+        set({ phase: 'done', html: r.html, chars: r.html.length })
+        return { phase: 'done', html: r.html }
+      }
+      if (r.phase === 'cancelled') {
+        set({ phase: 'cancelled' })
+        return { phase: 'cancelled' }
+      }
+      set({ phase: 'error', error: 'unknown' })
+      return { phase: 'error', error: 'unknown' }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      set({ phase: 'error', error: msg })
+      return { phase: 'error', error: msg }
     }
   },
 
@@ -79,8 +79,9 @@ export const useStageStreamStore = create<StageStreamState>((set, get) => ({
       } else {
         if (slideId) await api.stage.slideCancel(projectId, slideId)
       }
-    } catch (e: any) {
-      set({ phase: 'error', error: e?.message ?? String(e) })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      set({ phase: 'error', error: msg })
     }
   },
 
