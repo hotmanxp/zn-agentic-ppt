@@ -173,9 +173,11 @@ async function runSingleSlide(opts: {
     runner.run().then(() => {
       opts.signal?.removeEventListener('abort', onAbort)
       if (opts.signal?.aborted) return reject(new Error('aborted'))
-      // Extract the <section> from the LLM output
       const section = extractFirstSection(buffer)
-      if (!section) return reject(new Error('LLM did not return a <section>'))
+      if (!section) {
+        console.log(`[slide:${opts.runId}] LLM did not return <section>; buffer (first 500 chars): ${buffer.slice(0, 500)}`)
+        return reject(new Error('LLM did not return a <section>'))
+      }
       resolve(section)
     }).catch(reject)
   })
