@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Progress, App as AntdApp } from 'antd'
-import { api } from '../lib/api'
 import { ProjectStepper } from '../components/ProjectStepper'
 import { SlideThumbnailStrip } from '../components/SlideThumbnailStrip'
 import { StyleControls } from '../components/StyleControls'
+import { SlidePreview } from '../components/SlidePreview'
 import { usePptGenerationStore } from '../stores/pptGeneration'
 import { useOutlineStore } from '../stores/outline'
 import { DEFAULT_STYLE, type StyleSettings } from '@shared/types'
@@ -15,15 +15,8 @@ export function FineTunePage() {
   const { message } = AntdApp.useApp()
   const outline = useOutlineStore(s => s.outline)
   const [style, setStyle] = useState<StyleSettings>(DEFAULT_STYLE)
-  const [userDataPath, setUserDataPath] = useState<string>('')
-  const previewRef = useRef<HTMLIFrameElement>(null)
   const pptGen = usePptGenerationStore()
   const [currentId, setCurrentId] = useState<string | null>(null)
-  const [iframeKey, setIframeKey] = useState(0)
-
-  useEffect(() => {
-    api.system.userDataPath().then(setUserDataPath)
-  }, [])
 
   // Initialize the pptGeneration store from outline on mount / outline change
   useEffect(() => {
@@ -32,18 +25,6 @@ export function FineTunePage() {
       setCurrentId(outline.slides[0].id)
     }
   }, [outline, id])
-
-  // Force iframe reload when a new slide becomes ready
-  useEffect(() => {
-    setIframeKey(k => k + 1)
-  }, [pptGen.completed])
-
-  // When user clicks a thumbnail, scroll the iframe to that slide via hash
-  useEffect(() => {
-    if (!currentId || !previewRef.current) return
-    const w = previewRef.current.contentWindow
-    if (w) w.location.hash = currentId
-  }, [currentId, iframeKey])
 
   const onStart = async () => {
     if (!outline || outline.slides.length === 0) {
@@ -76,10 +57,7 @@ export function FineTunePage() {
 
   const slidesList = Object.values(pptGen.slides)
   const isRunning = pptGen.phase === 'running'
-  // Show only the currently selected slide (one slide at a time, like PowerPoint)
-  const iframeSrc = (userDataPath && currentId)
-    ? `file://${userDataPath}/projects/${id}/slides/${currentId}.html`
-    : ''
+  const currentSlide = currentId ? slidesList.find(s => s.id === currentId) : null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
@@ -112,18 +90,8 @@ export function FineTunePage() {
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
                 暂无大纲。请先到「第 2 步」编辑大纲。
               </div>
-            ) : iframeSrc ? (
-              <iframe
-                key={iframeKey}
-                ref={previewRef}
-                src={iframeSrc}
-                style={{ flex: 1, width: '100%', height: '100%', border: 'none', background: '#0b1020' }}
-                sandbox="allow-same-origin allow-scripts"
-              />
             ) : (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
-                加载中…
-              </div>
+              <SlidePreview slide={currentSlide ?? null} />
             )}
             {isRunning && (
               <div style={{ position: 'absolute', bottom: 16, right: 16, background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '6px 12px', borderRadius: 6, fontSize: 12 }}>
