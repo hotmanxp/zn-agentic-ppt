@@ -5,7 +5,9 @@
   "description": "Desktop PPT generator powered by LLM Agent",
   "type": "module",
   "main": "dist/main/index.js",
-  "bin": { "zn-agentic-ppt": "./bin/zn-agentic-ppt.js" },
+  "bin": {
+    "zn-agentic-ppt": "./bin/zn-agentic-ppt.js"
+  },
   "scripts": {
     "dev": "bun run scripts/dev.ts",
     "build": "bun run build:main && bun run build:renderer",
@@ -20,25 +22,29 @@
     "lint": "biome check --write ."
   },
   "dependencies": {
+    "@ant-design/icons": "^5.4.0",
+    "@anthropic-ai/sdk": "0.94.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1072.0",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "antd": "^5.20.0",
+    "google-auth-library": "9.15.1",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-router-dom": "^6.26.0",
-    "zustand": "^4.5.0",
-    "antd": "^5.20.0",
-    "@ant-design/icons": "^5.4.0"
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
-    "electron": "^30.0.0",
-    "electron-builder": "^24.13.0",
-    "vite": "^5.4.0",
-    "@vitejs/plugin-react": "^4.3.0",
-    "esbuild": "^0.23.0",
-    "typescript": "^5.5.0",
+    "@biomejs/biome": "^1.9.0",
+    "@playwright/test": "^1.46.0",
+    "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
-    "@types/node": "^20.14.0",
-    "vitest": "^2.0.0",
-    "@playwright/test": "^1.46.0",
-    "@biomejs/biome": "^1.9.0"
+    "@vitejs/plugin-react": "^4.3.0",
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.0",
+    "esbuild": "^0.23.0",
+    "typescript": "^5.5.0",
+    "vite": "^5.4.0",
+    "vitest": "^2.0.0"
   }
 }

@@ -1,3 +1,4 @@
+// @ts-ignore vendor bundle — no types available
 import { query as sdkQuery } from '../../../vendor/sdk.mjs'
 import { buildSystemPrompt } from './prompts.js'
 import type { Settings } from '../../shared/types.js'

@@ -12,7 +12,7 @@ export function createMainWindow(): BrowserWindow {
     minHeight: 600,
     title: 'ZN Agentic PPT',
     webPreferences: {
-      preload: join(__dirname, '..', 'preload', 'index.js'),
+      preload: join(__dirname, '..', 'preload', 'index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -24,12 +24,23 @@ export function createMainWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
+  win.webContents.on('console-message', (_e, level, message, _line, _src) => {
+    console.log(`[renderer L${level}] ${message}`)
+  })
+  win.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    console.log(`[did-fail-load] ${code} ${desc} ${url}`)
+  })
+  win.webContents.on('render-process-gone', (_e, details) => {
+    console.log(`[render-process-gone]`, details)
+  })
+
   const devUrl = process.env.VITE_DEV_SERVER_URL
   if (devUrl) {
     win.loadURL(devUrl)
     win.webContents.openDevTools({ mode: 'detach' })
   } else {
     win.loadFile(join(__dirname, '..', '..', 'dist', 'renderer', 'index.html'))
+    if (process.env.OPEN_DEVTOOLS) win.webContents.openDevTools({ mode: 'detach' })
   }
   return win
 }
