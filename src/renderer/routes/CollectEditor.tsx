@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Input, App as AntdApp } from 'antd'
 import { api } from '../lib/api'
+import { useOutlineStore } from '../stores/outline'
 import { ProjectStepper } from '../components/ProjectStepper'
 import { StageNav } from '../components/StageNav'
 import { StageStreamBar } from '../components/StageStreamBar'
@@ -14,6 +15,7 @@ export function CollectEditor() {
   const { message } = AntdApp.useApp()
   const [topic, setTopic] = useState('')
   const [source, setSource] = useState('')
+  const setOutline = useOutlineStore(s => s.setOutline)
 
   useEffect(() => {
     (async () => {
@@ -56,7 +58,10 @@ export function CollectEditor() {
             <StageStreamBar
               kind="outline"
               projectId={id}
-              onDone={() => nav(`/projects/${id}/outline`)}
+              onDone={(r) => {
+                setOutline(r.slides ?? [])
+                nav(`/projects/${id}/outline`)
+              }}
             />
           ) : (
             <small style={{ color: '#9ca3af' }}>字符数：{source.length} · 约 30 秒生成大纲</small>
