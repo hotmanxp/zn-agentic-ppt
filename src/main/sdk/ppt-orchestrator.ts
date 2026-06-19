@@ -1,5 +1,6 @@
 import { GenerationRunner } from './runner.js'
 import { buildSlidePrompt, generateFrameworkHtml, generateLayoutHtml } from './ppt-framework.js'
+import { buildSlideMcpServer } from './slide-mcp-tools.js'
 import * as projectFs from '../fs/projects.js'
 import type { OutlineSlide, Settings } from '../../shared/types.js'
 
@@ -151,10 +152,13 @@ async function runSingleSlide(opts: {
   systemPrompt: string
   runId: string
   signal?: AbortSignal
+  userMessage?: string
+  mcpServers?: Record<string, unknown>
 }): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     if (opts.signal?.aborted) return reject(new Error('aborted'))
-    let buffer = ''
+    const slideId = opts.runId.split(':').pop() ?? ''
+    const userMsg = opts.userMessage ?? '请使用 mcp__slides__write_slide_file 工具把这一页 PPT 的 HTML 写入 slides/' + slideId + '.html（空模板已存在，请覆盖）。'
     const runner = new GenerationRunner({
       cwd: opts.cwd,
       topic: '',
@@ -162,42 +166,31 @@ async function runSingleSlide(opts: {
       settings: opts.settings,
       runId: opts.runId,
       systemPrompt: opts.systemPrompt,
-      userMessage: '请生成这一页 PPT。',
+      userMessage: userMsg,
+      mcpServers: opts.mcpServers,
       onEvent: () => {},
       onProgress: () => {},
-      onDone: ({ html }) => { buffer = html },
+      onDone: () => {},
       onError: ({ error }) => reject(new Error(error.message)),
     })
     const onAbort = () => runner.interrupt()
     opts.signal?.addEventListener('abort', onAbort, { once: true })
-    runner.run().then(() => {
+    runner.run().then(async () => {
       opts.signal?.removeEventListener('abort', onAbort)
       if (opts.signal?.aborted) return reject(new Error('aborted'))
-      const section = extractFirstSection(buffer)
-      if (!section) {
-        console.log(`[slide:${opts.runId}] LLM did not return <section>; buffer (first 500 chars): ${buffer.slice(0, 500)}`)
-        return reject(new Error('LLM did not return a <section>'))
+      // Read back the file the agent wrote via the MCP tool
+      const { readFile } = await import('node:fs/promises')
+      const safe = slideId.replace(/[^a-zA-Z0-9_-]/g, '_')
+      const path = `${opts.cwd}/slides/${safe}.html`
+      try {
+        const html = await readFile(path, 'utf8')
+        resolve(html)
+      } catch (e: any) {
+        reject(new Error(`agent did not write slides/${safe}.html: ${e?.message ?? e}`))
       }
-      resolve(section)
     }).catch(reject)
   })
 }
-
-function extractFirstSection(html: string): string | null {
-  // Strip optional ```html fences before scanning.
-  const stripped = html
-    .replace(/^```(?:html)?\s*\n/i, '')
-    .replace(/\n```\s*$/, '')
-  const lower = stripped.toLowerCase()
-  const openIdx = lower.indexOf('<section')
-  if (openIdx === -1) return null
-  const tagEnd = stripped.indexOf('>', openIdx)
-  if (tagEnd === -1) return null
-  const closeIdx = lower.indexOf('</section>', tagEnd)
-  if (closeIdx === -1) return null
-  return stripped.slice(tagEnd + 1, closeIdx)
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise(r => setTimeout(r, ms))
 }

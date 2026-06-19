@@ -20,6 +20,8 @@ export interface RunnerOptions {
   systemPrompt?: string
   /** Override the user message sent to the model. Default: 'Generate the PPT.' */
   userMessage?: string
+  /** Optional MCP server config (e.g. per-slide file read/write tools) */
+  mcpServers?: Record<string, unknown>
   onEvent: (msg: any) => void
   onProgress: (info: { phase: string; current: number }) => void
   onDone: (info: { html: string; durationMs: number }) => void
@@ -60,7 +62,13 @@ export class GenerationRunner {
         },
         permissionMode: 'bypassPermissions',
         allowDangerouslySkipPermissions: true,
-        canUseTool: async () => ({ behavior: 'deny', message: 'tools disabled' }),
+        canUseTool: async (name: string) => {
+          if (typeof name === 'string' && name.startsWith('mcp__slides__')) {
+            return { behavior: 'allow' } as any
+          }
+          return { behavior: 'deny', message: 'tools disabled' } as any
+        },
+        ...(this.opts.mcpServers ? { mcpServers: this.opts.mcpServers } : {}),
         maxTurns: 1,
       },
     })
