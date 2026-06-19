@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { GenerationRunner } from '../runner.js'
 import { renderPrompt } from '../prompts/index.js'
 import { extractFirstJsonValue } from '../json-extract.js'
-import { validateBrief, BriefParseError } from '../../../shared/brief.js'
+import { validateBrief } from '../../../shared/brief.js'
 import type { Settings, ProjectBrief, AppError } from '../../../shared/types.js'
 
 export interface AskUserRequest {
@@ -149,8 +149,7 @@ export class BriefAgent {
       const obj = extractFirstJsonValue(buffer)
       this.opts.onDone(validateBrief(obj))
     } catch (e: any) {
-      const code: AppError['code'] = e instanceof BriefParseError ? 'PARSE' : 'PARSE'
-      this.opts.onError({ code, message: e?.message ?? String(e), retryable: true })
+      this.opts.onError({ code: 'PARSE', message: e?.message ?? String(e), retryable: true })
     }
   }
 }
