@@ -81,23 +81,17 @@ export const usePptGenerationStore = create<PptGenerationState>((set, get) => ({
 
   applySlideReady: (e) => {
     const cur = get()
-    if (cur.projectId !== e.projectId) return
-    const slide = cur.slides[e.slideId]
-    if (!slide) return
+    const existing = cur.slides[e.slideId]
+    const slide = existing ?? { id: e.slideId, title: e.slideId, status: 'pending' as SlideStatus }
+    const next = { ...cur.slides, [e.slideId]: { ...slide, status: e.status, html: e.html, error: e.error, durationMs: e.durationMs, retries: e.retries } }
+    const completed = Object.values(next).filter(s => s.status === 'done').length
+    const failed = Object.values(next).filter(s => s.status === 'failed').length
     set({
-      slides: {
-        ...cur.slides,
-        [e.slideId]: {
-          ...slide,
-          status: e.status,
-          html: e.html,
-          error: e.error,
-          durationMs: e.durationMs,
-          retries: e.retries,
-        },
-      },
-      completed: e.completed,
-      total: e.total,
+      projectId: cur.projectId ?? e.projectId,
+      total: Math.max(cur.total, e.total),
+      slides: next,
+      completed,
+      failed,
     })
   },
 
