@@ -6,6 +6,7 @@ vi.mock('../../../../../src/main/fs/settings.js', () => ({
 
 import { renderPrompt, getSpec, PROMPT_SPECS } from '../../../../../src/main/sdk/prompts/index.js'
 import { getPromptOverride } from '../../../../../src/main/fs/settings.js'
+import { briefOptimizePrompt } from '../../../../../src/main/sdk/prompts/brief-optimize.js'
 
 const mockGetPromptOverride = getPromptOverride as unknown as ReturnType<typeof vi.fn>
 
@@ -39,5 +40,23 @@ describe('renderPrompt', () => {
   it('getSpec returns registered spec', () => {
     expect(getSpec('outline')).not.toBeNull()
     expect(PROMPT_SPECS.length).toBeGreaterThanOrEqual(4)
+  })
+})
+
+describe('brief-optimize prompt', () => {
+  it('declares source and hintJson variables', () => {
+    const names = briefOptimizePrompt.variables.map(v => v.name)
+    expect(names).toEqual(['source', 'hintJson'])
+  })
+  it('instructs agent to use AskUserQuestion tool', () => {
+    expect(briefOptimizePrompt.defaultTemplate).toMatch(/AskUserQuestion/)
+  })
+  it('lists 5 output fields', () => {
+    const t = briefOptimizePrompt.defaultTemplate
+    expect(t).toMatch(/"name"/)
+    expect(t).toMatch(/"audience"/)
+    expect(t).toMatch(/"durationMinutes"/)
+    expect(t).toMatch(/"content"/)
+    expect(t).toMatch(/"style"/)
   })
 })

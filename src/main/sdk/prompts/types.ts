@@ -8,7 +8,7 @@ export interface PromptVar {
   example?: string
 }
 
-export type PromptId = 'outline' | 'regenerate' | 'slide-system' | 'slide-user'
+export type PromptId = 'outline' | 'regenerate' | 'slide-system' | 'slide-user' | 'brief-optimize'
 
 export interface PromptSpec {
   id: PromptId

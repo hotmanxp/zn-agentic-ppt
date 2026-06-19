@@ -60,3 +60,5 @@ import { slideSystemPrompt } from './slide-system.js'
 registerPrompt(slideSystemPrompt)
 import { slideUserPrompt } from './slide-user.js'
 registerPrompt(slideUserPrompt)
+import { briefOptimizePrompt } from './brief-optimize.js'
+registerPrompt(briefOptimizePrompt)
