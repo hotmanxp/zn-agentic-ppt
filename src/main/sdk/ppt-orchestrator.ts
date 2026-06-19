@@ -96,7 +96,17 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
         onProgress(slide)
         const target = opts.outline.slides.find(s => s.id === slide.id)!
         const others = opts.outline.slides.filter(s => s.id !== slide.id).map(s => ({ id: s.id, title: s.title }))
-        const systemPrompt = buildSlidePrompt(target, others, opts.style) + '\n\n请用你的文件工具 (Read / Write / Edit) 直接编辑 slides/' + slide.id + '.html 文件。空模板已经存在，请覆盖。完成后用文字回复 done。'
+        const systemPrompt = [
+          `【项目信息】`,
+          `CWD: ${opts.cwd}`,
+          `共 ${opts.outline.slides.length} 张幻灯片, 当前要生成第 ${opts.outline.slides.findIndex(s => s.id === slide.id) + 1} 张`,
+          ``,
+          `【文件结构】`,
+          `- ${opts.cwd}/index.html — 框架(自动生成,不要改)`,
+          `- ${opts.cwd}/slides/<id>.html — 每张幻灯片(你编辑这个)`,
+          ``,
+          buildSlidePrompt(target, others, opts.style),
+        ].join('\n')
         const startedAt = Date.now()
 
         let success = false
