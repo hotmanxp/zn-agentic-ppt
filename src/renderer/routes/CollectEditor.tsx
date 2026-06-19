@@ -1,34 +1,57 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Input, App as AntdApp } from 'antd'
-import { api } from '../lib/api'
-import { useOutlineStore } from '../stores/outline'
+import { Button, Input, App as AntdApp } from 'antd'
+import { api } from '../lib/api.js'
 import { ProjectStepper } from '../components/ProjectStepper'
 import { StageNav } from '../components/StageNav'
 import { StageStreamBar } from '../components/StageStreamBar'
+import { useProjectDetailStore } from '../stores/projectDetail'
+import { useOutlineStore } from '../stores/outline'
 
 const { TextArea } = Input
+
+// StageNav will gain an optional `dirty` prop in a parallel track; widen the
+// type locally so the unsaved-changes prompt wires through cleanly here.
+const StageNavWithDirty = StageNav as unknown as React.FC<React.ComponentProps<typeof StageNav> & { dirty?: boolean }>
 
 export function CollectEditor() {
   const { id = '' } = useParams()
   const nav = useNavigate()
   const { message } = AntdApp.useApp()
-  const [topic, setTopic] = useState('')
-  const [source, setSource] = useState('')
+  const detail = useProjectDetailStore(s => s.detail)
+  const patchDetail = useProjectDetailStore(s => s.patchDetail)
   const setOutline = useOutlineStore(s => s.setOutline)
 
-  useEffect(() => {
-    (async () => {
-      const p = await api.project.get(id)
-      if (p) setTopic(p.topic)
-      // load source from fs via api (use a read-source ipc — for MVP read via project.get or skip)
-    })()
-  }, [id])
-
+  const [topic, setTopic] = useState('')
+  const [source, setSource] = useState('')
   const [streaming, setStreaming] = useState(false)
-  const onNext = async () => {
-    if (!source.trim()) { message.warning('请先粘贴内容'); return }
-    await api.stage.collectSave(id, topic, source)
+  const [saving, setSaving] = useState(false)
+  const [dirty, setDirty] = useState(false)
+
+  // Restore from detail
+  useEffect(() => {
+    if (detail?.id === id) {
+      if (detail.topic) setTopic(detail.topic)
+      if (detail.source !== null) setSource(detail.source)
+      setDirty(false)
+    }
+  }, [detail?.id, id])
+
+  const onSave = async () => {
+    setSaving(true)
+    try {
+      await api.stage.collectSave(id, topic, source)
+      patchDetail({ source, topic })
+      setDirty(false)
+      message.success('已保存')
+    } catch (e: any) {
+      message.error(e?.message ?? '保存失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const onNext = () => {
     setStreaming(true)
   }
 
@@ -42,13 +65,13 @@ export function CollectEditor() {
           <Input
             placeholder="项目主题"
             value={topic}
-            onChange={e => setTopic(e.target.value)}
+            onChange={e => { setTopic(e.target.value); setDirty(true) }}
             style={{ marginBottom: 12 }}
           />
           <TextArea
             rows={14}
             value={source}
-            onChange={e => setSource(e.target.value)}
+            onChange={e => { setSource(e.target.value); setDirty(true) }}
             placeholder="把你的内容粘贴到这里..."
             style={{ fontFamily: 'SF Mono, Monaco, monospace', fontSize: 13, lineHeight: 1.6 }}
           />
@@ -64,11 +87,23 @@ export function CollectEditor() {
               }}
             />
           ) : (
-            <small style={{ color: '#9ca3af' }}>字符数：{source.length} · 约 30 秒生成大纲</small>
+            <>
+              <small style={{ color: '#9ca3af' }}>字符数：{source.length} · 约 30 秒生成大纲</small>
+              <Button type="primary" onClick={onSave} loading={saving} disabled={!dirty}>
+                保存项目信息
+              </Button>
+            </>
           )}
         </div>
       </div>
-      <StageNav projectId={id} current="collect" canNext={source.trim().length > 0 && !streaming} onNext={onNext} nextLabel="下一步：生成大纲" />
+      <StageNavWithDirty
+        projectId={id}
+        current="collect"
+        canNext={source.trim().length > 0 && !streaming}
+        dirty={dirty}
+        onNext={onNext}
+        nextLabel="下一步：生成大纲"
+      />
     </div>
   )
 }
