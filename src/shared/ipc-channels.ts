@@ -21,6 +21,10 @@ export const IPC = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
   SETTINGS_TEST_CONNECTION: 'settings:test-connection',
+  SETTINGS_PROMPT_GET: 'settings:prompt-get',
+  SETTINGS_PROMPT_SET: 'settings:prompt-set',
+  SETTINGS_PROMPT_RESET: 'settings:prompt-reset',
+  SETTINGS_PROMPT_LIST: 'settings:prompt-list',
   SYSTEM_USER_DATA_PATH: 'system:userDataPath',
 
   // Stage 1-4 (renderer → main, invoke)

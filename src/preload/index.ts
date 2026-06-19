@@ -17,6 +17,12 @@ const api = {
     get: () => ipcRenderer.invoke(IPC.SETTINGS_GET),
     set: (settings: any) => ipcRenderer.invoke(IPC.SETTINGS_SET, { settings }),
     testConnection: () => ipcRenderer.invoke(IPC.SETTINGS_TEST_CONNECTION),
+    prompts: {
+      get: (id: string) => ipcRenderer.invoke(IPC.SETTINGS_PROMPT_GET, { id }),
+      set: (id: string, template: string) => ipcRenderer.invoke(IPC.SETTINGS_PROMPT_SET, { id, template }),
+      reset: (id: string) => ipcRenderer.invoke(IPC.SETTINGS_PROMPT_RESET, { id }),
+      list: () => ipcRenderer.invoke(IPC.SETTINGS_PROMPT_LIST),
+    },
   },
   system: {
     userDataPath: () => ipcRenderer.invoke(IPC.SYSTEM_USER_DATA_PATH),

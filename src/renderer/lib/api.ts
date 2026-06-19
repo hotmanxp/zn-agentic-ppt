@@ -37,6 +37,12 @@ export interface BridgeApi {
     get(): Promise<Settings>
     set(settings: Settings): Promise<void>
     testConnection(): Promise<{ ok: boolean; models?: string[]; error?: string }>
+    prompts: {
+      get(id: string): Promise<string | null>
+      set(id: string, template: string): Promise<void>
+      reset(id: string): Promise<void>
+      list(): Promise<Record<string, string>>
+    }
   }
   system: {
     userDataPath(): Promise<string>

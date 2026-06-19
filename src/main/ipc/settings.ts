@@ -12,5 +12,13 @@ export function registerSettingsIPC(): void {
     const s = await fs.getSettings()
     return testLLMConnection(s)
   })
+  ipcMain.handle(IPC.SETTINGS_PROMPT_GET, async (_, { id }: { id: string }) => fs.getPromptOverride(id))
+  ipcMain.handle(IPC.SETTINGS_PROMPT_SET, async (_, { id, template }: { id: string; template: string }) => {
+    await fs.setPromptOverride(id, template)
+  })
+  ipcMain.handle(IPC.SETTINGS_PROMPT_RESET, async (_, { id }: { id: string }) => {
+    await fs.resetPromptOverride(id)
+  })
+  ipcMain.handle(IPC.SETTINGS_PROMPT_LIST, async () => fs.listPromptOverrides())
   ipcMain.handle(IPC.SYSTEM_USER_DATA_PATH, () => app.getPath('userData'))
 }
