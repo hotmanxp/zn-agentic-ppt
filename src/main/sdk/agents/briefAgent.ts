@@ -128,6 +128,11 @@ export class BriefAgent {
       systemPrompt,
       userMessage: '请开始整理项目信息。',
       mcpServers: { 'brief-tools': server },
+      // Disable all file tools so the LLM only uses our in-process
+      // AskUserQuestion MCP tool instead of exploring the working dir
+      // (which is what the vendor SDK's code-agent profile would otherwise
+      // drive it to do).
+      disallowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebFetch', 'WebSearch'],
       sdkEvents: this.opts.sdkEvents,
       onEvent: () => {},
       onProgress: () => {},

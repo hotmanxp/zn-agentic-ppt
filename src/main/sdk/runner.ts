@@ -22,6 +22,13 @@ export interface RunnerOptions {
   userMessage?: string
   /** Optional MCP server config (e.g. per-slide file read/write tools) */
   mcpServers?: Record<string, unknown>
+  /**
+   * Override SDK's default `disallowedTools` list. Default: `['Bash']`
+   * (preserves Bash block for safety). BriefAgent overrides this to disable
+   * all file tools so the LLM focuses on the in-process AskUserQuestion MCP
+   * tool instead of exploring the working directory.
+   */
+  disallowedTools?: string[]
   onEvent: (msg: any) => void
   onProgress: (info: { phase: string; current: number }) => void
   onDone: (info: { html: string; durationMs: number }) => void
@@ -76,7 +83,7 @@ export class GenerationRunner {
         // omitted). We allow all built-in tools; Bash is also blocked
         // via disallowedTools below for safety.
         canUseTool: async () => ({ behavior: 'allow' } as any),
-        disallowedTools: ['Bash'],
+        disallowedTools: this.opts.disallowedTools ?? ['Bash'],
         maxTurns: 3,
         // Forward MCP servers so the SDK injects their tools into the
         // model context. Without this, custom tools (e.g. AskUserQuestion
