@@ -19,6 +19,7 @@ function broadcast(channel: string, payload: unknown) {
 }
 
 import { registry } from './stage-stream-registry.js'
+import { extractFirstJsonObject } from '../sdk/json-extract.js'
 
 async function loadSettingsAndOutline(id: string) {
   const settings = await settingsFs.getSettings()
@@ -74,9 +75,7 @@ export function registerStageIPC() {
     if (registry.isCancelled(key)) {
       return { phase: 'cancelled' as const }
     }
-    const jsonMatch = buffer.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) throw new Error('LLM did not return JSON')
-    const parsed = JSON.parse(jsonMatch[0]) as { slides: OutlineSlide[] }
+    const parsed = extractFirstJsonObject<{ slides: OutlineSlide[] }>(buffer)
     await outlineFs.writeOutline(id, { slides: parsed.slides, generatedAt: Date.now() })
     return { phase: 'done' as const, slides: parsed.slides }
   })
