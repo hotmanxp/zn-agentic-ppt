@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Progress, App as AntdApp } from 'antd'
-import { api } from '../lib/api'
 import { ProjectStepper } from '../components/ProjectStepper'
+import { SlideThumbnailStrip } from '../components/SlideThumbnailStrip'
+import { SlidePreview } from '../components/SlidePreview'
 import { usePptGenerationStore } from '../stores/pptGeneration'
 import { useOutlineStore } from '../stores/outline'
 
@@ -13,16 +14,17 @@ export function GeneratePage() {
   const ppt = usePptGenerationStore()
   const outline = useOutlineStore(s => s.outline)
   const [started, setStarted] = useState(false)
-  const [latestSlideHtml, setLatestSlideHtml] = useState<{ id: string; title: string; html: string } | null>(null)
+  const [currentId, setCurrentId] = useState<string | null>(null)
 
   // Initialize slides from outline (if not already)
   useEffect(() => {
     if (outline && outline.slides.length > 0 && ppt.projectId !== id) {
       ppt.initialize(id, outline.slides.map(s => ({ id: s.id, title: s.title })))
+      if (!currentId) setCurrentId(outline.slides[0].id)
     }
   }, [outline, id])
 
-  // Auto-start on mount
+  // Auto-start on mount (kicks off LLM per slide via orchestrator)
   useEffect(() => {
     if (started) return
     if (!outline || outline.slides.length === 0) return
@@ -30,21 +32,10 @@ export function GeneratePage() {
     ppt.start(id)
   }, [outline, id, started])
 
-  // Track the most recently completed slide for the live preview pane
-  useEffect(() => {
-    if (ppt.phase !== 'running') return
-    const slides = Object.values(ppt.slides)
-    const lastDone = slides.filter(s => s.status === 'done').sort((a, b) => (b.durationMs ?? 0) - (a.durationMs ?? 0))[0]
-    if (lastDone?.html) {
-      setLatestSlideHtml({ id: lastDone.id, title: lastDone.title, html: lastDone.html })
-    }
-  }, [ppt.completed])
-
-  // Auto-navigate when done
+  // Toast on phase transitions
   useEffect(() => {
     if (ppt.phase === 'done') {
       message.success(`完成 ${ppt.completed}/${ppt.total}`)
-      setTimeout(() => nav(`/projects/${id}/fine-tune`), 800)
     } else if (ppt.phase === 'cancelled') {
       message.info('已取消')
     } else if (ppt.phase === 'error') {
@@ -56,83 +47,47 @@ export function GeneratePage() {
     await ppt.cancel()
   }
 
+  const onRegenerate = () => {
+    setStarted(false)
+    // schedule next tick: start() reads started flag
+    setTimeout(() => setStarted(true), 0)
+    ppt.reset()
+    setTimeout(() => ppt.start(id), 0)
+  }
+
   const slidesList = Object.values(ppt.slides)
+  const isRunning = ppt.phase === 'running'
   const percent = ppt.total > 0 ? Math.round((ppt.completed / ppt.total) * 100) : 0
+  const currentSlide = currentId ? slidesList.find(s => s.id === currentId) : null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
       <ProjectStepper projectId={id} />
-      <div style={{ flex: 1, padding: '32px 48px', background: '#fafbff', overflow: 'auto' }}>
-        <h2 style={{ margin: '0 0 4px' }}>第 3 步 · 实时生成</h2>
-        <p style={{ color: '#6b7280', margin: '0 0 20px' }}>
-          {ppt.phase === 'running' && '并行调用 LLM 生成每张幻灯片...'}
-          {ppt.phase === 'done' && '全部完成，即将跳到预览...'}
-          {ppt.phase === 'cancelled' && '已取消'}
-          {ppt.phase === 'error' && '生成失败，可返回修改大纲'}
-        </p>
-
-        <div style={{ background: '#fff', border: '1px solid #bfdbfe', borderRadius: 8, padding: 24, marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-            <div style={{ fontSize: 32 }}>⚡</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <strong>生成中...</strong>
-                <small style={{ color: '#6b7280' }}>{ppt.completed} / {ppt.total} 张完成 {ppt.failed > 0 ? `· ${ppt.failed} 失败` : ''}</small>
-              </div>
-              <Progress percent={percent} showInfo={false}
-                status={ppt.phase === 'error' ? 'exception' : 'active'}
-                strokeColor={{ from: '#1677ff', to: '#722ed1' }} />
-            </div>
-            {ppt.phase === 'running' && (
-              <Button danger size="small" onClick={onCancel}>取消</Button>
-            )}
-          </div>
-
-          {/* Per-slide live status */}
-          <div style={{ marginTop: 16 }}>
-            {slidesList.map((s, i) => (
-              <div key={s.id} style={{
-                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0',
-                borderBottom: i < slidesList.length - 1 ? '1px solid #f3f4f6' : 'none',
-              }}>
-                <span style={{
-                  width: 18, height: 18, borderRadius: 3, fontSize: 11,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: s.status === 'done' ? '#22c55e' : s.status === 'generating' ? '#fbbf24' : s.status === 'failed' ? '#ef4444' : '#d1d5db',
-                  color: '#fff', fontWeight: 600,
-                }}>{i + 1}</span>
-                <span style={{ flex: 1, fontSize: 13 }}>{s.title}</span>
-                <small style={{ color: '#6b7280', fontSize: 11 }}>
-                  {s.status === 'pending' && '等待中'}
-                  {s.status === 'generating' && '生成中…'}
-                  {s.status === 'done' && `${(s.durationMs ?? 0) / 1000}s`}
-                  {s.status === 'failed' && (s.error ?? '失败')}
-                </small>
-              </div>
-            ))}
-          </div>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f3f4f6', overflow: 'hidden' }}>
+        {/* Top bar: progress + cancel */}
+        <div style={{ padding: '12px 16px', background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <strong style={{ fontSize: 13 }}>第 3 步 · PPT 实时生成</strong>
+          <Progress
+            percent={percent}
+            style={{ flex: 1, margin: 0 }}
+            status={ppt.phase === 'error' ? 'exception' : (ppt.phase === 'cancelled' ? 'normal' : 'active')}
+          />
+          <small style={{ color: '#6b7280', minWidth: 80, textAlign: 'right' }}>
+            {ppt.completed} / {ppt.total} {ppt.failed > 0 ? `(${ppt.failed} 失败)` : ''}
+          </small>
+          {isRunning
+            ? <Button danger size="small" onClick={onCancel}>取消</Button>
+            : <Button type="primary" size="small" onClick={onRegenerate}>{ppt.completed > 0 ? '重新生成' : '开始生成'}</Button>}
         </div>
 
-        {/* Live HTML preview of the most recently completed slide */}
-        {latestSlideHtml && (
-          <div style={{ background: '#0b1020', borderRadius: 8, padding: 24, marginBottom: 20 }}>
-            <div style={{ color: '#94a3b8', fontSize: 11, marginBottom: 12, display: 'flex', justifyContent: 'space-between' }}>
-              <span>最新完成 · {latestSlideHtml.title}</span>
-              <span>slide {latestSlideHtml.id}</span>
-            </div>
-            <pre style={{
-              color: '#e2e8f0', fontSize: 11, lineHeight: 1.5, fontFamily: 'SF Mono, Monaco, monospace',
-              whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 360, overflow: 'auto', margin: 0,
-            }}>{latestSlideHtml.html}</pre>
-          </div>
-        )}
-
-        {ppt.phase === 'error' && (
-          <div style={{ padding: 16, background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', borderRadius: 8 }}>
-            生成失败
-            <Button onClick={() => nav(`/projects/${id}/outline`)} style={{ marginLeft: 16 }}>← 返回大纲</Button>
-          </div>
-        )}
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+          <SlideThumbnailStrip
+            slides={slidesList}
+            currentId={currentId}
+            onSelect={setCurrentId}
+          />
+          <SlidePreview slide={currentSlide ?? null} />
+        </div>
       </div>
     </div>
   )

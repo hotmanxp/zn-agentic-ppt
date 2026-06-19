@@ -61,7 +61,7 @@ export function OutlinePage() {
 
   const onNext = async () => {
     if (localOutline.slides.length === 0) { message.warning('至少需要一页'); return }
-    nav(`/projects/${id}/fine-tune`)
+    nav(`/projects/${id}/generate`)
   }
 
   return (
