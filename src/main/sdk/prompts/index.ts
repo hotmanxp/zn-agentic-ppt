@@ -37,3 +37,6 @@ export function registerPrompt(spec: PromptSpec): void {
 export function getSpec(id: string): PromptSpec | null {
   return PROMPT_SPECS.find(s => s.id === id) ?? null
 }
+
+import { outlinePrompt } from './outline.js'
+registerPrompt(outlinePrompt)
