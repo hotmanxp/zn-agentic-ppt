@@ -47,7 +47,7 @@ export interface BridgeApi {
     outlineUpdate(id: string, slideId: string, patch: Partial<OutlineSlide>): Promise<{ slides: OutlineSlide[] }>
     slideAdd(id: string): Promise<{ slides: OutlineSlide[] }>
     slideDelete(id: string, slideId: string): Promise<{ slides: OutlineSlide[] }>
-    slideRegenerate(id: string, slideId: string): Promise<{ phase: 'done' | 'cancelled'; html: string; durationMs: number }>
+    slideRegenerate(id: string, slideId: string): Promise<{ phase: 'done'; html: string; durationMs: number } | { phase: 'cancelled' }>
     slideCancel(id: string, slideId: string): Promise<{ ok: boolean }>
     htmlGenerate(id: string): Promise<{ html: string; durationMs: number }>
     styleSave(id: string, style: StyleSettings): Promise<void>

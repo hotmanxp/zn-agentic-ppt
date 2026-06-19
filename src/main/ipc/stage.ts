@@ -136,7 +136,7 @@ export function registerStageIPC() {
     registry.register(key, runner, 'slide-regen')
     await runner.run()
     if (registry.isCancelled(key)) {
-      return { phase: 'cancelled' as const, html: '', durationMs: 0 }
+      return { phase: 'cancelled' as const }
     }
     return { phase: 'done' as const, html: '', durationMs: 0 }
   })
