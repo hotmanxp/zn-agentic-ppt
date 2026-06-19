@@ -434,7 +434,7 @@ if (brief) {
 
 ## 8. 文件清单
 
-**新增 6 个**
+**新增 10 个**
 - `src/main/sdk/agents/briefAgent.ts` — BriefAgent 类
 - `src/main/sdk/prompts/brief-optimize.ts` — PromptSpec
 - `src/main/ipc/brief.ts` — IPC handler 集中点
@@ -445,17 +445,25 @@ if (brief) {
 - `tests/unit/main/sdk/agents/briefAgent.test.ts`
 - `tests/unit/shared/brief.test.ts`
 - `tests/unit/main/ipc/brief.test.ts`
+- `tests/unit/renderer/stores/briefOptimize.test.ts` *(由 plan 增补)*
 
-**改 7 个**
+**改 10 个**
 - `src/shared/ipc-channels.ts` — 加 6 个 channel
 - `src/shared/types.ts` — 加 `ProjectBrief` + `ProjectDetail.brief`
 - `src/preload/index.ts` — 暴露 `brief.*` 方法
 - `src/renderer/routes/CollectEditor.tsx` — 拆两区 + 接 store
 - `src/main/sdk/prompts/index.ts` — register `brief-optimize`
+- `src/main/sdk/prompts/types.ts` — `PromptId` 加 `brief-optimize` *(由 plan 增补)*
 - `src/main/sdk/prompts/outline.ts` — 切到读 brief
-- `src/main/ipc/stage.ts` — outline handler 读 brief + 降级
+- `src/main/ipc/stage.ts` — outline handler 读 brief + 降级 + `STAGE_COLLECT_SAVE` 写 brief
+- `src/main/index.ts` — `registerBriefIPC()` *(由 plan 增补)*
 - `src/main/fs/projects.ts` — `readProjectBrief` / `writeProjectBrief`
 - `src/renderer/components/PromptSettings.tsx` — `PROMPT_METADATA` 加 `brief-optimize`
+
+**改 3 个测试文件**
+- `tests/unit/main/fs/projects.test.ts` — 新增 brief persistence 段
+- `tests/unit/main/sdk/prompts/renderPrompt.test.ts` — 新增 brief-optimize prompt 段
+- `tests/unit/renderer/stores/briefOptimize.test.ts` — 见新增段
 
 ## 9. 测试 & 验证
 
