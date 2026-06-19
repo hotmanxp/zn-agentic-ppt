@@ -97,4 +97,22 @@ describe('useStageStreamStore', () => {
     expect(s.chars).toBe(0)
     expect(s.html).toBe('')
   })
+
+  it('applyEvent done phase updates phase to done', () => {
+    useStageStreamStore.setState({ kind: 'outline', projectId: 'proj-1', phase: 'streaming', chars: 100 })
+    useStageStreamStore.getState().applyEvent({
+      runId: 'proj-1', projectId: 'proj-1', kind: 'outline', phase: 'done', chars: 500,
+    })
+    const s = useStageStreamStore.getState()
+    expect(s.phase).toBe('done')
+    expect(s.chars).toBe(500)
+  })
+
+  it('applyEvent cancelled phase updates phase to cancelled', () => {
+    useStageStreamStore.setState({ kind: 'slide-regen', projectId: 'proj-1', slideId: 'sA', phase: 'streaming' })
+    useStageStreamStore.getState().applyEvent({
+      runId: 'proj-1:sA', projectId: 'proj-1', slideId: 'sA', kind: 'slide-regen', phase: 'cancelled', chars: 200,
+    })
+    expect(useStageStreamStore.getState().phase).toBe('cancelled')
+  })
 })

@@ -39,7 +39,7 @@ export const useStageStreamStore = create<StageStreamState>((set, get) => ({
     set({ kind, projectId, slideId: slideId ?? null, phase: 'streaming', chars: 0, html: '', error: null })
     try {
       if (kind === 'outline') {
-        const r: any = await api.stage.outlineGenerate(projectId)
+        const r = await api.stage.outlineGenerate(projectId)
         if (r.phase === 'done') {
           set({ phase: 'done', chars: r.slides ? JSON.stringify(r.slides).length : 0 })
           return { phase: 'done', slides: r.slides }
@@ -48,10 +48,10 @@ export const useStageStreamStore = create<StageStreamState>((set, get) => ({
           set({ phase: 'cancelled' })
           return { phase: 'cancelled' }
         }
-        set({ phase: 'error', error: r.error ?? 'unknown' })
-        return { phase: 'error', error: r.error }
+        set({ phase: 'error', error: 'unknown' })
+        return { phase: 'error', error: 'unknown' }
       } else {
-        const r: any = await api.stage.slideRegenerate(projectId, slideId!)
+        const r = await api.stage.slideRegenerate(projectId, slideId!)
         if (r.phase === 'done') {
           set({ phase: 'done', html: r.html, chars: r.html.length })
           return { phase: 'done', html: r.html }
@@ -60,8 +60,8 @@ export const useStageStreamStore = create<StageStreamState>((set, get) => ({
           set({ phase: 'cancelled' })
           return { phase: 'cancelled' }
         }
-        set({ phase: 'error', error: r.error ?? 'unknown' })
-        return { phase: 'error', error: r.error }
+        set({ phase: 'error', error: 'unknown' })
+        return { phase: 'error', error: 'unknown' }
       }
     } catch (e: any) {
       set({ phase: 'error', error: e?.message ?? String(e) })
@@ -73,10 +73,14 @@ export const useStageStreamStore = create<StageStreamState>((set, get) => ({
     const { kind, projectId, slideId } = get()
     if (!kind || !projectId) return
     set({ phase: 'cancelling' })
-    if (kind === 'outline') {
-      await api.stage.outlineCancel(projectId)
-    } else {
-      if (slideId) await api.stage.slideCancel(projectId, slideId)
+    try {
+      if (kind === 'outline') {
+        await api.stage.outlineCancel(projectId)
+      } else {
+        if (slideId) await api.stage.slideCancel(projectId, slideId)
+      }
+    } catch (e: any) {
+      set({ phase: 'error', error: e?.message ?? String(e) })
     }
   },
 
