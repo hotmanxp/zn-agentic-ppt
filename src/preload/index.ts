@@ -11,6 +11,7 @@ const api = {
     duplicate: (id: string) => ipcRenderer.invoke(IPC.PROJECT_DUPLICATE, { id }),
     rename: (id: string, title: string) => ipcRenderer.invoke(IPC.PROJECT_RENAME, { id, title }),
     reveal: (id: string) => ipcRenderer.invoke(IPC.PROJECT_REVEAL, { id }),
+    detail: (id: string) => ipcRenderer.invoke(IPC.PROJECT_DETAIL, { id }),
   },
   settings: {
     get: () => ipcRenderer.invoke(IPC.SETTINGS_GET),

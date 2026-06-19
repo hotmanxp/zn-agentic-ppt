@@ -17,6 +17,7 @@ export interface BridgeApi {
   project: {
     list(): Promise<ProjectMeta[]>
     get(id: string): Promise<ProjectDetail | null>
+    detail(id: string): Promise<ProjectDetail | null>
     create(topic: string): Promise<ProjectMeta>
     update(id: string, patch: Partial<Pick<ProjectMeta, 'title' | 'topic' | 'outline'>>): Promise<ProjectMeta>
     delete(id: string): Promise<void>

@@ -15,6 +15,7 @@ export const IPC = {
   PROJECT_DUPLICATE: 'project:duplicate',
   PROJECT_RENAME: 'project:rename',
   PROJECT_REVEAL: 'project:reveal',
+  PROJECT_DETAIL: 'project:detail',
   GENERATION_START: 'generation:start',
   GENERATION_CANCEL: 'generation:cancel',
   SETTINGS_GET: 'settings:get',
