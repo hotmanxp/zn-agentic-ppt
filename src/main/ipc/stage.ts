@@ -10,7 +10,7 @@ import { getProjectDir } from '../fs/paths.js'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import type { OutlineSlide, StyleSettings } from '../../shared/types.js'
+import type { OutlineSlide, StyleSettings, ProjectBrief } from '../../shared/types.js'
 
 function broadcast(channel: string, payload: unknown) {
   for (const w of BrowserWindow.getAllWindows()) {
@@ -35,8 +35,11 @@ async function loadSettingsAndOutline(id: string) {
 }
 
 export function registerStageIPC() {
-  ipcMain.handle(IPC.STAGE_COLLECT_SAVE, async (_, { id, topic, source }: { id: string; topic: string; source: string }) => {
+  ipcMain.handle(IPC.STAGE_COLLECT_SAVE, async (_, { id, topic, source, brief }: { id: string; topic: string; source: string; brief: ProjectBrief | null }) => {
     await outlineFs.writeSource(id, source)
+    if (brief) {
+      await projectFs.writeProjectBrief(id, brief)
+    }
     const existing = await projectFs.getProject(id)
     if (existing) {
       await projectFs.updateProject(id, { topic })
