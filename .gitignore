@@ -9,3 +9,8 @@ test-results/
 playwright-report/
 coverage/
 .agent_working_dir/
+
+# Toolchain local state (machine-specific, must NOT be committed)
+.claude/
+.codegraph/
+.mcp.json
