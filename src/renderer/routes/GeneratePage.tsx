@@ -6,35 +6,33 @@ import { SlideThumbnailStrip } from '../components/SlideThumbnailStrip'
 import { SlidePreview } from '../components/SlidePreview'
 import { usePptGenerationStore } from '../stores/pptGeneration'
 import { useOutlineStore } from '../stores/outline'
+import { useProjectDetailStore } from '../stores/projectDetail'
 
 export function GeneratePage() {
   const { id = '' } = useParams()
   const nav = useNavigate()
-  const { message } = AntdApp.useApp()
+  const { message, modal } = AntdApp.useApp()
   const ppt = usePptGenerationStore()
   const outline = useOutlineStore(s => s.outline)
-  const [started, setStarted] = useState(false)
+  const detail = useProjectDetailStore(s => s.detail)
+  const applyDetail = (usePptGenerationStore(s => s as unknown as { applyDetail: (id: string, slides: Array<{ id: string; html: string; status: 'done' | 'failed' }>) => void })).applyDetail
   const [currentId, setCurrentId] = useState<string | null>(null)
 
-  // Initialize slides from outline (if not already)
+  // Restore slides from detail on mount (no auto-start)
   useEffect(() => {
-    if (outline && outline.slides.length > 0 && ppt.projectId !== id) {
+    if (detail?.id === id && detail.slides.length > 0) {
+      applyDetail(id, detail.slides)
+      if (!currentId) setCurrentId(detail.slides[0].id)
+    } else if (outline && outline.slides.length > 0 && ppt.projectId !== id) {
+      // Fallback: init empty placeholders from outline if detail not yet loaded
       ppt.initialize(id, outline.slides.map(s => ({ id: s.id, title: s.title })))
       if (!currentId) setCurrentId(outline.slides[0].id)
     }
-  }, [outline, id])
-
-  // Auto-start on mount (kicks off LLM per slide via orchestrator)
-  useEffect(() => {
-    if (started) return
-    if (!outline || outline.slides.length === 0) return
-    setStarted(true)
-    ppt.start(id)
-  }, [outline, id, started])
+  }, [detail?.id, outline, id])
 
   // Toast on phase transitions
   useEffect(() => {
-    if (ppt.phase === 'done') {
+    if (ppt.phase === 'done' && ppt.total > 0 && ppt.projectId === id) {
       message.success(`完成 ${ppt.completed}/${ppt.total}`)
     } else if (ppt.phase === 'cancelled') {
       message.info('已取消')
@@ -43,16 +41,25 @@ export function GeneratePage() {
     }
   }, [ppt.phase])
 
-  const onCancel = async () => {
-    await ppt.cancel()
+  const onRegenerate = () => {
+    if (ppt.completed > 0 || ppt.failed > 0) {
+      modal.confirm({
+        title: '重新生成',
+        content: `将覆盖已有 ${ppt.completed} 页成功 + ${ppt.failed} 页失败的生成结果，确认？`,
+        okText: '确认重新生成',
+        cancelText: '取消',
+        onOk: () => {
+          ppt.reset()
+          ppt.start(id)
+        },
+      })
+    } else {
+      ppt.start(id)
+    }
   }
 
-  const onRegenerate = () => {
-    setStarted(false)
-    // schedule next tick: start() reads started flag
-    setTimeout(() => setStarted(true), 0)
-    ppt.reset()
-    setTimeout(() => ppt.start(id), 0)
+  const onCancel = async () => {
+    await ppt.cancel()
   }
 
   const slidesList = Object.values(ppt.slides)
@@ -64,7 +71,6 @@ export function GeneratePage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
       <ProjectStepper projectId={id} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f3f4f6', overflow: 'hidden' }}>
-        {/* Top bar: progress + cancel */}
         <div style={{ padding: '12px 16px', background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 16 }}>
           <strong style={{ fontSize: 13 }}>第 3 步 · PPT 实时生成</strong>
           <Progress
