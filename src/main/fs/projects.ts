@@ -52,6 +52,10 @@ export async function createProject(topic: string): Promise<ProjectMeta> {
     outline: '',
     pageCount: null,
     createdAt: now, updatedAt: now,
+    currentStage: 'idle',
+    hasSource: false,
+    hasOutline: false,
+    hasHtml: false,
   }
   const dir = join(getProjectsDir(), id)
   await mkdir(dir, { recursive: true })

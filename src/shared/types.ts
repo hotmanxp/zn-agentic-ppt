@@ -9,6 +9,10 @@ export interface ProjectMeta {
   pageCount: number | null
   createdAt: number
   updatedAt: number
+  currentStage: 'collect' | 'outline' | 'generate' | 'fine-tune' | 'idle'
+  hasSource: boolean
+  hasOutline: boolean
+  hasHtml: boolean
 }
 
 export interface ProjectDetail extends ProjectMeta {
@@ -46,4 +50,30 @@ export interface AppError {
   message: string
   detail?: string
   retryable: boolean
+}
+
+// ── PPT wizard types ───────────────────────────────────────────────────────────
+
+export interface OutlineSlide {
+  id: string
+  title: string
+  bullets: string[]
+  notes?: string
+}
+
+export interface Outline {
+  slides: OutlineSlide[]
+  generatedAt: number
+}
+
+export interface StyleSettings {
+  primaryColor: string
+  layout: 'minimal' | 'fullbg' | 'columns'
+  fontFamily: string
+}
+
+export const DEFAULT_STYLE: StyleSettings = {
+  primaryColor: '#1677ff',
+  layout: 'minimal',
+  fontFamily: '-apple-system, sans-serif',
 }
