@@ -1,5 +1,7 @@
 import type { ProjectMeta, ProjectDetail, Settings, OutlineSlide, StyleSettings } from '@shared/types'
 
+export type { OutlineSlide }
+
 export interface StageStreamEvent {
   runId: string
   projectId: string
