@@ -42,32 +42,32 @@ describe('fs/settings prompt overrides', () => {
   afterEach(() => rmSync(dir, { recursive: true, force: true }))
 
   it('returns null when not set', async () => {
-    expect(await getPromptOverride('outline')).toBeNull()
+    expect(await getPromptOverride('OUTLINE_PROMPT')).toBeNull()
   })
 
   it('persists override via setPromptOverride', async () => {
-    await setPromptOverride('outline', 'CUSTOM TEMPLATE')
-    expect(await getPromptOverride('outline')).toBe('CUSTOM TEMPLATE')
+    await setPromptOverride('OUTLINE_PROMPT', 'CUSTOM TEMPLATE')
+    expect(await getPromptOverride('OUTLINE_PROMPT')).toBe('CUSTOM TEMPLATE')
   })
 
   it('resetPromptOverride deletes the override', async () => {
-    await setPromptOverride('outline', 'X')
-    await resetPromptOverride('outline')
-    expect(await getPromptOverride('outline')).toBeNull()
+    await setPromptOverride('OUTLINE_PROMPT', 'X')
+    await resetPromptOverride('OUTLINE_PROMPT')
+    expect(await getPromptOverride('OUTLINE_PROMPT')).toBeNull()
   })
 
   it('listPromptOverrides returns only set overrides', async () => {
-    await setPromptOverride('outline', 'A')
-    await setPromptOverride('regenerate', 'B')
+    await setPromptOverride('OUTLINE_PROMPT', 'A')
+    await setPromptOverride('REGENERATE_PROMPT', 'B')
     const list = await listPromptOverrides()
-    expect(list.outline).toBe('A')
-    expect(list.regenerate).toBe('B')
-    expect(list['slide-system']).toBeUndefined()
+    expect(list.OUTLINE_PROMPT).toBe('A')
+    expect(list.REGENERATE_PROMPT).toBe('B')
+    expect(list.SLIDE_SYSTEM_PROMPT).toBeUndefined()
   })
 
   it('survives settings read/write cycle', async () => {
-    await setPromptOverride('outline', 'PERSIST')
+    await setPromptOverride('OUTLINE_PROMPT', 'PERSIST')
     await setSettings(await getSettings())
-    expect(await getPromptOverride('outline')).toBe('PERSIST')
+    expect(await getPromptOverride('OUTLINE_PROMPT')).toBe('PERSIST')
   })
 })

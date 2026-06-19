@@ -9,7 +9,7 @@ const LAYOUT_DIRECTIONS = [
 ] as const
 
 export const slideUserPrompt: PromptSpec = {
-  id: 'slide-user',
+  id: 'SLIDE_USER_PROMPT',
   title: '单页用户提示词',
   description: '每张幻灯片的 per-turn 请求：项目元数据 + 本张内容 + layout 视觉方向。',
   defaultTemplate: `请为第 {{slideIndex}} 张 PPT（layout-{{layout}}）生成 HTML 内容并写入 slides/{{slideId}}.html。

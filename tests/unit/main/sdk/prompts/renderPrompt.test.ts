@@ -15,7 +15,7 @@ describe('renderPrompt', () => {
 
   it('uses default template when no override set', async () => {
     mockGetPromptOverride.mockResolvedValue(null)
-    const out = await renderPrompt('outline', {
+    const out = await renderPrompt('OUTLINE_PROMPT', {
       briefName: 'X', briefAudience: 'aud', briefDurationMinutes: '30',
       briefContent: 'Y', briefStyle: 'tech',
     })
@@ -25,7 +25,7 @@ describe('renderPrompt', () => {
 
   it('uses override template when set', async () => {
     mockGetPromptOverride.mockResolvedValue('CUSTOM {{briefName}}')
-    const out = await renderPrompt('outline', {
+    const out = await renderPrompt('OUTLINE_PROMPT', {
       briefName: 'Z', briefAudience: 'aud', briefDurationMinutes: '30',
       briefContent: 'W', briefStyle: 'tech',
     })
@@ -39,7 +39,7 @@ describe('renderPrompt', () => {
 
   it('throws when caller omits a variable', async () => {
     mockGetPromptOverride.mockResolvedValue(null)
-    await expect(renderPrompt('outline', {
+    await expect(renderPrompt('OUTLINE_PROMPT', {
       briefName: 'X', briefAudience: 'aud', briefDurationMinutes: '30',
       briefContent: 'c',
     }))
@@ -47,7 +47,7 @@ describe('renderPrompt', () => {
   })
 
   it('getSpec returns registered spec', () => {
-    expect(getSpec('outline')).not.toBeNull()
+    expect(getSpec('OUTLINE_PROMPT')).not.toBeNull()
     expect(PROMPT_SPECS.length).toBeGreaterThanOrEqual(4)
   })
 })

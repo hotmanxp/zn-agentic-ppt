@@ -121,7 +121,7 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
         // System prompt: persona + hard rules + deck-wide palette/font.
         // Per-slide context (cwd, slide index, file paths) goes in the
         // user prompt so the system prompt stays static across turns.
-        const systemPrompt = await renderPrompt('slide-system', {
+        const systemPrompt = await renderPrompt('SLIDE_SYSTEM_PROMPT', {
           'globalStyle.primaryColor': opts.outline.globalStyle?.primaryColor ?? '',
           'globalStyle.accentColor': opts.outline.globalStyle?.accentColor ?? '',
           'globalStyle.fontFamily': opts.outline.globalStyle?.fontFamily ?? '',
@@ -132,7 +132,7 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
         const othersTitles = others.map(o => `- ${o.title}`).join('\n')
         const styleBlock = opts.style ? `【全局样式参数】\n${JSON.stringify(opts.style, null, 2)}\n` : ''
         const layoutDirection = LAYOUT_DIRECTIONS[slide.layout - 1] ?? ''
-        const userMessage = await renderPrompt('slide-user', {
+        const userMessage = await renderPrompt('SLIDE_USER_PROMPT', {
           cwd: opts.cwd,
           slideIndex: slideIndex.toString(),
           totalSlides: opts.outline.slides.length.toString(),

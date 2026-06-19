@@ -1,7 +1,7 @@
 import type { PromptSpec } from './types.js'
 
 export const regeneratePrompt: PromptSpec = {
-  id: 'regenerate',
+  id: 'REGENERATE_PROMPT',
   title: '单页重新生成',
   description: '根据整页 outline + 当前 HTML 风格，重新生成单页 HTML（layout 强制对齐轮换）。',
   defaultTemplate: `你是 PPT 单页编辑 + 视觉设计师。用户要重新生成其中一页。

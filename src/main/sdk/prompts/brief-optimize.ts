@@ -1,7 +1,7 @@
 import type { PromptSpec } from './types.js'
 
 export const briefOptimizePrompt: PromptSpec = {
-  id: 'brief-optimize',
+  id: 'BRIEF_OPTIMIZE_PROMPT',
   title: '项目信息优化',
   description: '把用户原始描述 + 现有结构化字段整理成完整的 5 字段 brief,允许用 AskUserQuestion 追问最多 2 轮。',
   defaultTemplate: `你是 PPT 项目结构化助手。你的任务是把用户给的原始描述(可能很粗糙)整理成一个 5 字段的完整 brief。

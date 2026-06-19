@@ -1,7 +1,7 @@
 import type { PromptSpec } from './types.js'
 
 export const slideSystemPrompt: PromptSpec = {
-  id: 'slide-system',
+  id: 'SLIDE_SYSTEM_PROMPT',
   title: '单页系统提示词',
   description: '发给 LLM 的 persona + 硬性规则 + 整套 PPT 的全局视觉风格。每张幻灯片生成时都会带上。',
   defaultTemplate: `你是 PPT 内容编辑 + 视觉设计师。

@@ -1,7 +1,7 @@
 import type { PromptSpec } from './types.js'
 
 export const outlinePrompt: PromptSpec = {
-  id: 'outline',
+  id: 'OUTLINE_PROMPT',
   title: '大纲生成',
   description: '基于项目 brief 整理成 4-8 张幻灯片大纲,含 cover/closing 强制首尾与全局风格。',
   defaultTemplate: `你是 PPT 大纲编辑 + 视觉策划。基于以下项目 brief 整理成 4-8 张幻灯片大纲,每页包含:

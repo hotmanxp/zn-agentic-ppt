@@ -60,7 +60,7 @@ export function registerStageIPC() {
     let buffer = ''
     const runner = new GenerationRunner({
       cwd, topic: project.topic, outline: brief.name ?? source, settings, runId: id,
-      systemPrompt: await renderPrompt('outline', {
+      systemPrompt: await renderPrompt('OUTLINE_PROMPT', {
         briefName: brief.name,
         briefAudience: brief.audience,
         briefDurationMinutes: brief.durationMinutes.toString(),
@@ -154,7 +154,7 @@ export function registerStageIPC() {
       return 5
     })() : undefined
     const layoutHint = layoutIdx ? `【本张幻灯片指定 layout = layout-${layoutIdx}】—— **必须**使用对应的模板，与整套 PPT 的轮换 layout 一致。` : ''
-    const prompt = await renderPrompt('regenerate', {
+    const prompt = await renderPrompt('REGENERATE_PROMPT', {
       target,
       others,
       currentSectionHtml: currentSection,
