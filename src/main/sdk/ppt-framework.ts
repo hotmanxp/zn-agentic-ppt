@@ -78,17 +78,32 @@ export function buildSlidePrompt(
   others: Pick<OutlineSlide, 'id' | 'title'>[],
   style?: unknown,
 ): string {
-  return `你是 PPT 单页编辑。用户要为一页 PPT 生成 HTML。
+  return `你是 PPT 单页编辑。用户要为一页 PPT 生成 HTML 内容。
 
-目标页 outline:
-${JSON.stringify(target, null, 2)}
+【目标页内容】(必须写入 slides/${target.id}.html)
+标题: ${target.title}
+要点:
+${(target.bullets ?? []).map((b, i) => `  ${i + 1}. ${b}`).join('\n')}
+${target.notes ? `备注: ${target.notes}` : ''}
 
-其他页（保持整体连贯性参考）:
-${JSON.stringify(others, null, 2)}
+【其他页标题参考】(保持整体连贯性)
+${others.map(o => `- ${o.title}`).join('\n')}
 
-${style ? `用户选择的样式参数:\n${JSON.stringify(style, null, 2)}\n` : ''}只输出 <section data-id="${target.id}">...</section> 片段，不要包含 <html>/<head>/<body>。
-使用语义化 class（如 h1/h2/ul/li/p），保持简洁、可在浅色或深色背景上阅读。
-不要写 <style> 或 <script>。`
+${style ? `【样式参数】\n${JSON.stringify(style, null, 2)}\n` : ''}【任务】
+1. 用 Read 工具读取 slides/${target.id}.html（已存在空模板）
+2. 用 Write 工具将整个文件覆盖为该页的 HTML section：
+   <section data-id="${target.id}">
+     <h1>${target.title}</h1>
+     <ul>
+       <li>...要点 1...</li>
+       <li>...要点 2...</li>
+       ...
+     </ul>
+   </section>
+3. 完成后回复 "done"
+
+只输出 <section> 片段，不要包含 <html>/<head>/<body>。
+使用语义化 class（h1/h2/ul/li/p）。不要写 <style> 或 <script>。`
 }
 
 /**
