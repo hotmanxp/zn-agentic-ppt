@@ -6,7 +6,7 @@ interface OutlineStore {
   outline: { slides: OutlineSlide[]; generatedAt: number } | null
   style: StyleSettings | null
   loaded: boolean
-  load: (id: string) => Promise<void>
+  applyDetail: (snapshot: { slides: OutlineSlide[]; generatedAt: number }) => void
   setOutline: (slides: OutlineSlide[], generatedAt?: number) => void
   generate: (id: string, topic: string, source: string) => Promise<OutlineSlide[]>
   updateSlide: (id: string, slideId: string, patch: Partial<OutlineSlide>) => Promise<void>
@@ -21,11 +21,14 @@ export const useOutlineStore = create<OutlineStore>((set, get) => ({
   outline: null,
   style: null,
   loaded: false,
-  load: async (id) => {
-    await api.project.get(id)
-    set({ loaded: true })
-  },
-  setOutline: (slides, generatedAt) => set({ outline: { slides, generatedAt: generatedAt ?? Date.now() } }),
+  applyDetail: (snapshot) => set({
+    outline: { slides: snapshot.slides, generatedAt: snapshot.generatedAt },
+    loaded: true,
+  }),
+  setOutline: (slides, generatedAt) => set({
+    outline: { slides, generatedAt: generatedAt ?? Date.now() },
+    loaded: true,
+  }),
   generate: async (id, topic, source) => {
     await api.stage.collectSave(id, topic, source)
     const r = await api.stage.outlineGenerate(id)
