@@ -62,10 +62,10 @@ export class GenerationRunner {
         },
         permissionMode: 'bypassPermissions',
         allowDangerouslySkipPermissions: true,
-        // Let the agent use its built-in Read / Write / Edit tools. The
-        // runner's onDone fires after the agent finishes (whether it
-        // edited files via Write or just chatted). We only block Bash
-        // for safety via disallowedTools below.
+        // canUseTool is REQUIRED by the SDK (defaults deny everything if
+        // omitted). We allow all built-in tools; Bash is also blocked
+        // via disallowedTools below for safety.
+        canUseTool: async () => ({ behavior: 'allow' } as any),
         disallowedTools: ['Bash'],
         maxTurns: 3,
       },
