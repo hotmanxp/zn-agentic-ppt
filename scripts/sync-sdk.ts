@@ -12,7 +12,7 @@ const VENDOR_DIR = join(HERE, '..', 'vendor')
 async function main() {
   if (!existsSync(UPSTREAM_DIST)) {
     console.error(`Upstream SDK not found at ${UPSTREAM_DIST}.`)
-    console.error('Run `cd /Users/ethan/code/opencc-worktree && bun run build` first.`)
+    console.error('Run `cd /Users/ethan/code/opencc-worktree && bun run build` first.')
     process.exit(1)
   }
   await cp(UPSTREAM_DIST, join(VENDOR_DIR, 'sdk.mjs'))

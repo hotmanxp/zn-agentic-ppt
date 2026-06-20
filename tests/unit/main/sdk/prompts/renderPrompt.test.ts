@@ -57,8 +57,8 @@ describe('brief-optimize prompt', () => {
     const names = briefOptimizePrompt.variables.map(v => v.name)
     expect(names).toEqual(['source', 'hintJson'])
   })
-  it('instructs agent to use AskUserQuestion tool', () => {
-    expect(briefOptimizePrompt.defaultTemplate).toMatch(/AskUserQuestion/)
+  it('instructs agent to use BriefAskUser tool', () => {
+    expect(briefOptimizePrompt.defaultTemplate).toMatch(/BriefAskUser/)
   })
   it('lists 5 output fields', () => {
     const t = briefOptimizePrompt.defaultTemplate

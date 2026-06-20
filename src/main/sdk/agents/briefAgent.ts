@@ -1,5 +1,5 @@
 // @ts-ignore vendor bundle — no types available
-import { tool, createSdkMcpServer } from '../../../../vendor/sdk.mjs'
+import { registerExternalTool } from '../../../../vendor/sdk.mjs'
 import { randomUUID } from 'node:crypto'
 import { GenerationRunner } from '../runner.js'
 import { renderPrompt } from '../prompts/index.js'
@@ -72,52 +72,93 @@ export class BriefAgent {
   private askQueue = new Map<string, (r: AskAnswer) => void>()
   private turns = 0
   private runner: GenerationRunner | null = null
-  private askHandler: ((args: any) => Promise<{ content: Array<{ type: string; text: string }> }>) | null = null
+  private unregisterTool: (() => void) | null = null
 
   constructor(private opts: BriefAgentOpts) {}
 
-  /** Test-only accessor for the AskUserQuestion tool handler. */
-  __getAskHandler() {
-    if (!this.askHandler) {
-      this.askHandler = this.buildAskHandler()
+  /**
+   * Test-only: directly invoke the tool's call() to drive the ask flow
+   * without going through the SDK. Returns a Promise that resolves with
+   * the answer the SDK would have gotten.
+   */
+  __invokeAskHandlerForTest = async (args: any): Promise<AskAnswer> => {
+    if (this.turns >= 2) {
+      return { cancelled: true, reason: 'max_turns' }
     }
-    return this.askHandler
-  }
-
-  private buildAskHandler() {
-    return async (args: any): Promise<{ content: Array<{ type: string; text: string }> }> => {
-      if (this.turns >= 2) {
-        return { content: [{ type: 'text', text: JSON.stringify({ cancelled: true, reason: 'max_turns' }) }] }
-      }
-      this.turns++
-      const qid = randomUUID()
-      const answer = await new Promise<AskAnswer>((resolve) => {
-        this.askQueue.set(qid, resolve)
-        this.opts.onQuestion({ qid, turn: this.turns as 1 | 2, questions: args.questions })
-      })
-      return { content: [{ type: 'text', text: JSON.stringify(answer) }] }
-    }
+    this.turns++
+    const qid = randomUUID()
+    return new Promise<AskAnswer>((resolve) => {
+      this.askQueue.set(qid, resolve)
+      this.opts.onQuestion({ qid, turn: this.turns as 1 | 2, questions: args.questions })
+    })
   }
 
   async run(): Promise<void> {
-    const askHandler = this.buildAskHandler()
-    this.askHandler = askHandler
-    const askUserQuestionTool = tool(
-      'AskUserQuestion',
-      'Ask the user 1-4 multiple-choice questions to fill missing information.',
-      askUserQuestionJsonSchema as any,
-      askHandler as any,
-    )
-    const server = createSdkMcpServer({
-      type: 'sdk',
-      name: 'brief-tools',
-      tools: [askUserQuestionTool],
-    })
-
     const systemPrompt = await renderPrompt('BRIEF_OPTIMIZE_PROMPT', {
       source: this.opts.source,
       hintJson: JSON.stringify(this.opts.hint ?? {}, null, 2),
     })
+
+    // Register our question-asking tool as a SYSTEM TOOL (not MCP tool).
+    // Name is `BriefAskUser` to avoid collision with vendor SDK's
+    // built-in `AskUserQuestion` stub — which would either be the only
+    // one the LLM sees (if we name ours the same) or shadow our
+    // registration. SDK's `registerExternalTool` exposes ours to the LLM
+    // via getAllBaseTools() — same dispatch path as Read/Write/Bash — so
+    // the tool-call loop doesn't stall when our handler awaits the IPC
+    // roundtrip to the renderer.
+    const askUserQuestionTool: any = {
+      name: 'BriefAskUser',
+      searchHint: 'prompt the user with a multiple-choice question',
+      inputSchema: askUserQuestionJsonSchema,
+      outputSchema: { type: 'object' },
+      isEnabled: () => true,
+      isConcurrencySafe: () => true,
+      isReadOnly: () => true,
+      async description() {
+        return 'Ask the user 1-4 multiple-choice questions to fill missing information. Use this when source or hint is missing critical fields (audience, durationMinutes, style, etc.) and you cannot infer them reliably.'
+      },
+      async prompt() {
+        return 'BriefAskUser: emit when critical info is missing. Max 2 turns; max 4 questions per turn; 2-4 options per question; header ≤ 12 chars.'
+      },
+      userFacingName: () => 'BriefAskUser',
+      toAutoClassifierInput: (input: any) =>
+        (input?.questions ?? []).map((q: any) => q.question).join(' | '),
+      async call({ questions }: { questions: any[] }) {
+        if (this.turns >= 2) {
+          return { data: { cancelled: true, reason: 'max_turns' } }
+        }
+        this.turns++
+        const qid = randomUUID()
+        const answer = await new Promise<AskAnswer>((resolve) => {
+          this.askQueue.set(qid, resolve)
+          this.opts.onQuestion({ qid, turn: this.turns as 1 | 2, questions })
+        })
+        // SDK normalises tool result via mapToolResultToToolResultBlockParam
+        // below; for the actual SDK execution path we just return data.
+        return { data: answer }
+      },
+      mapToolResultToToolResultBlockParam(result: any, _toolUseID: string) {
+        if (result?.cancelled) {
+          return {
+            type: 'tool_result',
+            content: `User declined to answer the question.`,
+            tool_use_id: _toolUseID,
+          }
+        }
+        const value = result?.value ?? {}
+        const lines = Object.entries(value).map(
+          ([q, a]) => `"${q}"="${Array.isArray(a) ? a.join(', ') : a}"`,
+        )
+        return {
+          type: 'tool_result',
+          content: `User answered: ${lines.join('; ')}`,
+          tool_use_id: _toolUseID,
+        }
+      },
+    }
+
+    this.unregisterTool = registerExternalTool(askUserQuestionTool)
 
     this.runner = new GenerationRunner({
       cwd: this.opts.cwd,
@@ -127,12 +168,19 @@ export class BriefAgent {
       runId: `brief:${randomUUID()}`,
       systemPrompt,
       userMessage: '请开始整理项目信息。',
-      mcpServers: { 'brief-tools': server },
-      // Disable all file tools so the LLM only uses our in-process
-      // AskUserQuestion MCP tool instead of exploring the working dir
-      // (which is what the vendor SDK's code-agent profile would otherwise
-      // drive it to do).
-      disallowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebFetch', 'WebSearch'],
+      // No mcpServers — AskUserQuestion is now a system tool.
+      // Disable all built-in file tools so the LLM only uses our
+      // AskUserQuestion system tool (otherwise the SDK default
+      // code-agent profile lets the LLM drift into Bash/Read/Write
+      // and emit final JSON without ever asking).
+      disallowedTools: [
+        'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep',
+        'WebFetch', 'WebSearch',
+        // NOTE: do NOT add 'AskUserQuestion' here — that's the name of
+        // our own tool registered via registerExternalTool. The SDK has
+        // no built-in stub for it; listing it in disallowedTools would
+        // hide OUR tool from the LLM.
+      ],
       // Need ≥ 3 assistant turns: ask → answer → ask → answer → final JSON
       maxTurns: 10,
       sdkEvents: this.opts.sdkEvents,
@@ -141,7 +189,12 @@ export class BriefAgent {
       onDone: ({ html }) => this.handleDone(html),
       onError: ({ error }) => this.opts.onError({ code: 'INTERNAL', message: error.message, retryable: false }),
     })
-    await this.runner.run()
+    try {
+      await this.runner.run()
+    } finally {
+      this.unregisterTool?.()
+      this.unregisterTool = null
+    }
   }
 
   cancel(): void { this.runner?.interrupt() }
