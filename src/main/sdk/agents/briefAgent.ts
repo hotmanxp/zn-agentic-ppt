@@ -103,6 +103,7 @@ export class BriefAgent {
       hintJson: JSON.stringify(this.opts.hint ?? {}, null, 2),
       retryContext: retryHint,
     })
+    if (retryHint === '') void prevBuffer // unused on first attempt
 
     // Register our question-asking tool as a SYSTEM TOOL (not MCP tool).
     // Name is `BriefAskUser` to avoid collision with vendor SDK's
