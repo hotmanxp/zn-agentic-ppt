@@ -123,6 +123,19 @@ export class BriefAgent {
     const askUserQuestionTool: any = {
       name: 'AskUserQuestion',
       searchHint: 'prompt the user with a multiple-choice question',
+      // Provide BOTH a Zod-like `inputSchema` (SDK calls .safeParse /
+      // .parse / .isUnitSchema / .getMemberSchemas) and a plain JSON
+      // `inputJSONSchema` (other SDK paths). We avoid pulling zod in as
+      // a dependency by mocking the four Zod methods to pass through;
+      // since we control the call() input (it's an object literal from
+      // us), safeParse just accepts whatever we get.
+      inputSchema: {
+        ...askUserQuestionJsonSchema,
+        safeParse: (input: any) => ({ success: true, data: input }),
+        parse: (input: any) => input,
+        isUnitSchema: () => false,
+        getMemberSchemas: () => ({}),
+      },
       inputJSONSchema: askUserQuestionJsonSchema,
       isEnabled: () => true,
       isConcurrencySafe: () => true,
