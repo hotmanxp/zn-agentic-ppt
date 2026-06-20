@@ -57,7 +57,7 @@ describe('BriefAgent', () => {
       { type: 'system', subtype: 'init' },
       { type: 'assistant', message: { content: [
         { type: 'text', text: 'Let me ask.' },
-        { type: 'tool_use', name: 'AskUserQuestion', id: 't1', input: {
+        { type: 'tool_use', name: 'BriefAskUser', id: 't1', input: {
           questions: [{ question: '时长?', header: '时长', options: [{ label: '10分钟' }, { label: '30分钟' }], multiSelect: false }],
         }},
       ]}},
@@ -88,7 +88,7 @@ describe('BriefAgent', () => {
     // verify the system tool was registered with the SDK
     expect(mockRegisterExternalTool).toHaveBeenCalledTimes(1)
     const registeredTool = mockRegisterExternalTool.mock.calls[0][0]
-    expect(registeredTool.name).toBe('BriefAskUser')
+    expect(registeredTool.name).toBe('AskUserQuestion')
   })
 
   it('max_turns: 3rd call returns cancelled answer', async () => {

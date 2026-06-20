@@ -69,6 +69,9 @@ export interface BriefAgentOpts {
 }
 
 export class BriefAgent {
+  static readonly MAX_PARSE_RETRIES = 1
+  private parseRetries = 0
+
   private askQueue = new Map<string, (r: AskAnswer) => void>()
   private turns = 0
   private runner: GenerationRunner | null = null
@@ -77,9 +80,9 @@ export class BriefAgent {
   constructor(private opts: BriefAgentOpts) {}
 
   /**
-   * Test-only: directly invoke the tool's call() to drive the ask flow
-   * without going through the SDK. Returns a Promise that resolves with
-   * the answer the SDK would have gotten.
+   * Test-only: directly invoke the ask flow without going through the SDK.
+   * Returns a Promise that resolves with the answer the SDK would have
+   * gotten. Used by the unit tests to drive the ask flow synchronously.
    */
   __invokeAskHandlerForTest = async (args: any): Promise<AskAnswer> => {
     if (this.turns >= 2) {
@@ -94,43 +97,55 @@ export class BriefAgent {
   }
 
   async run(): Promise<void> {
+    this.parseRetries = 0
     await this.runOnce('', '')
   }
 
-  private async runOnce(retryHint: string, prevBuffer: string): Promise<void> {
+  cancel(): void { this.runner?.interrupt() }
+
+  answer(qid: string, value: AskAnswer): void {
+    const resolve = this.askQueue.get(qid)
+    if (resolve) { this.askQueue.delete(qid); resolve(value) }
+  }
+
+  private async runOnce(retryHint: string, _prevBuffer: string): Promise<void> {
     const systemPrompt = await renderPrompt('BRIEF_OPTIMIZE_PROMPT', {
       source: this.opts.source,
       hintJson: JSON.stringify(this.opts.hint ?? {}, null, 2),
       retryContext: retryHint,
     })
-    if (retryHint === '') void prevBuffer // unused on first attempt
+    void _prevBuffer
 
-    // Register our question-asking tool as a SYSTEM TOOL (not MCP tool).
-    // Name is `BriefAskUser` to avoid collision with vendor SDK's
-    // built-in `AskUserQuestion` stub — which would either be the only
-    // one the LLM sees (if we name ours the same) or shadow our
-    // registration. SDK's `registerExternalTool` exposes ours to the LLM
-    // via getAllBaseTools() — same dispatch path as Read/Write/Bash — so
-    // the tool-call loop doesn't stall when our handler awaits the IPC
-    // roundtrip to the renderer.
+    // Register AskUserQuestion as a SYSTEM TOOL via vendor SDK's
+    // registerExternalTool. Same dispatch path as Read/Write/Bash; the
+    // MCP tool path stalls when the handler awaits a Promise, so we
+    // avoid it. Tool name is 'AskUserQuestion' (matches SDK convention).
     const askUserQuestionTool: any = {
-      name: 'BriefAskUser',
+      name: 'AskUserQuestion',
       searchHint: 'prompt the user with a multiple-choice question',
-      inputSchema: askUserQuestionJsonSchema,
-      outputSchema: { type: 'object' },
+      inputJSONSchema: askUserQuestionJsonSchema,
       isEnabled: () => true,
       isConcurrencySafe: () => true,
       isReadOnly: () => true,
-      async description() {
+      isDestructive: () => false,
+      isOpenWorld: () => false,
+      async description(_input: any, _options: any) {
         return 'Ask the user 1-4 multiple-choice questions to fill missing information. Use this when source or hint is missing critical fields (audience, durationMinutes, style, etc.) and you cannot infer them reliably.'
       },
-      async prompt(_context?: any) {
-        return 'BriefAskUser: emit when critical info is missing. Max 2 turns; max 4 questions per turn; 2-4 options per question; header ≤ 12 chars.'
+      async prompt(_options: any) {
+        return 'AskUserQuestion: emit when critical info is missing. Max 2 turns; max 4 questions per turn; 2-4 options per question; header ≤ 12 chars.'
       },
-      userFacingName: () => 'BriefAskUser',
+      userFacingName: () => 'AskUserQuestion',
       toAutoClassifierInput: (input: any) =>
         (input?.questions ?? []).map((q: any) => q.question).join(' | '),
-      async call({ questions }: { questions: any[] }) {
+      async call(
+        args: { questions: any[] },
+        _context: unknown,
+        _canUseTool: unknown,
+        _parentMessage: unknown,
+        _onProgress?: unknown,
+      ) {
+        const questions = args?.questions ?? []
         if (this.turns >= 2) {
           return { data: { cancelled: true, reason: 'max_turns' } }
         }
@@ -140,8 +155,6 @@ export class BriefAgent {
           this.askQueue.set(qid, resolve)
           this.opts.onQuestion({ qid, turn: this.turns as 1 | 2, questions })
         })
-        // SDK normalises tool result via mapToolResultToToolResultBlockParam
-        // below; for the actual SDK execution path we just return data.
         return { data: answer }
       },
       mapToolResultToToolResultBlockParam(result: any, _toolUseID: string) {
@@ -173,23 +186,15 @@ export class BriefAgent {
       settings: this.opts.settings,
       runId: `brief:${randomUUID()}`,
       systemPrompt,
-      userMessage: prevBuffer
-        ? `上一次的输出无法解析为 JSON(包含 markdown fence 或多余文字)。请**只**输出**纯 JSON object**,第一个非空白字符必须是左花括号 {,最后以右花括号 } 结尾,不要任何解释。原始 prompt 见 system prompt。`
-        : '请开始整理项目信息。',
+      userMessage: '请开始整理项目信息。',
       // No mcpServers — AskUserQuestion is now a system tool.
-      // Disable all built-in file tools so the LLM only uses our
-      // AskUserQuestion system tool (otherwise the SDK default
-      // code-agent profile lets the LLM drift into Bash/Read/Write
-      // and emit final JSON without ever asking).
+      // Disable built-in file tools so the LLM only uses our system tool
+      // (otherwise the SDK's default code-agent profile lets the LLM
+      // drift into Bash/Read/Write and emit final JSON without asking).
       disallowedTools: [
         'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep',
         'WebFetch', 'WebSearch',
-        // NOTE: do NOT add 'AskUserQuestion' here — that's the name of
-        // our own tool registered via registerExternalTool. The SDK has
-        // no built-in stub for it; listing it in disallowedTools would
-        // hide OUR tool from the LLM.
       ],
-      // Need ≥ 3 assistant turns: ask → answer → ask → answer → final JSON
       maxTurns: 10,
       sdkEvents: this.opts.sdkEvents,
       onEvent: () => {},
@@ -205,26 +210,21 @@ export class BriefAgent {
     }
   }
 
-  cancel(): void { this.runner?.interrupt() }
-
-  answer(qid: string, value: AskAnswer): void {
-    const resolve = this.askQueue.get(qid)
-    if (resolve) { this.askQueue.delete(qid); resolve(value) }
-  }
-
   private async handleDone(buffer: string): Promise<void> {
     try {
       const obj = extractFirstJsonValue(buffer)
       this.opts.onDone(validateBrief(obj))
     } catch (e: any) {
-      // First-attempt parse failed — try once more with a stricter
-      // "output only pure JSON" prompt. LLM output is often stochastic;
-      // a retry usually lands in the right shape.
-      console.warn(`[BriefAgent] parse failed (${(e as Error).message}); retrying with strict-JSON prompt`)
+      if (this.parseRetries >= BriefAgent.MAX_PARSE_RETRIES) {
+        this.opts.onError({ code: 'PARSE', message: e?.message ?? String(e), retryable: true })
+        return
+      }
+      this.parseRetries++
+      console.warn(`[BriefAgent] parse failed (${(e as Error).message}); retry ${this.parseRetries}/${BriefAgent.MAX_PARSE_RETRIES} with strict-JSON prompt`)
       try {
         const retryHint = `[RETRY] 上次输出无法解析为 JSON。请只输出纯 JSON object,不要 markdown fence,不要解释,不要 tool_use。`
         await this.runOnce(retryHint, buffer.slice(0, 2000))
-      } catch (retryErr: any) {
+      } catch {
         this.opts.onError({ code: 'PARSE', message: e?.message ?? String(e), retryable: true })
       }
     }

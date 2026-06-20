@@ -23,14 +23,14 @@ export const briefOptimizePrompt: PromptSpec = {
 【强制流程:必须先问,再写 JSON】
 1. 先看 hint(现有结构化字段)和 source
 2. 评估 5 个字段里哪些能从 hint+source 明确推断,哪些不能
-3. **不能推断的每个字段**都必须包含在一次 AskUserQuestion 调用中(一次 1-4 个 question,每个 question 2-4 个 option)
+3. **不能推断的每个字段**都必须包含在一次 BriefAskUser 调用中(一次 1-4 个 question,每个 question 2-4 个 option)
 4. 等 tool_result 拿到用户答案
-5. 评估是否还有字段缺;缺就再调一次 AskUserQuestion(最多 2 轮)
+5. 评估是否还有字段缺;缺就再调一次 BriefAskUser(最多 2 轮)
 6. 5 字段齐全(或达到 2 轮上限 / tool_result.cancelled)后,直接输出最终 JSON,不要解释
 
-【工具:AskUserQuestion 调用格式】
+【工具:BriefAskUser 调用格式】
 <tool_use>
-  <tool_name>AskUserQuestion</tool_name>
+  <tool_name>BriefAskUser</tool_name>
   <input>{"questions": [{"question": "演讲对象是谁?", "header": "对象", "options": [{"label": "企业 CTO"}, {"label": "中学老师"}], "multiSelect": false}]}</input>
 </tool_use>
 
