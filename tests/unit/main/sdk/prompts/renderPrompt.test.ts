@@ -53,12 +53,12 @@ describe('renderPrompt', () => {
 })
 
 describe('brief-optimize prompt', () => {
-  it('declares source and hintJson variables', () => {
+  it('declares source, hintJson, retryContext variables', () => {
     const names = briefOptimizePrompt.variables.map(v => v.name)
-    expect(names).toEqual(['source', 'hintJson'])
+    expect(names).toEqual(['source', 'hintJson', 'retryContext'])
   })
-  it('instructs agent to use BriefAskUser tool', () => {
-    expect(briefOptimizePrompt.defaultTemplate).toMatch(/BriefAskUser/)
+  it('instructs agent to use AskUserQuestion tool', () => {
+    expect(briefOptimizePrompt.defaultTemplate).toMatch(/AskUserQuestion/)
   })
   it('lists 5 output fields', () => {
     const t = briefOptimizePrompt.defaultTemplate

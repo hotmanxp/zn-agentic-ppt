@@ -94,9 +94,14 @@ export class BriefAgent {
   }
 
   async run(): Promise<void> {
+    await this.runOnce('', '')
+  }
+
+  private async runOnce(retryHint: string, prevBuffer: string): Promise<void> {
     const systemPrompt = await renderPrompt('BRIEF_OPTIMIZE_PROMPT', {
       source: this.opts.source,
       hintJson: JSON.stringify(this.opts.hint ?? {}, null, 2),
+      retryContext: retryHint,
     })
 
     // Register our question-asking tool as a SYSTEM TOOL (not MCP tool).
@@ -118,7 +123,7 @@ export class BriefAgent {
       async description() {
         return 'Ask the user 1-4 multiple-choice questions to fill missing information. Use this when source or hint is missing critical fields (audience, durationMinutes, style, etc.) and you cannot infer them reliably.'
       },
-      async prompt() {
+      async prompt(_context?: any) {
         return 'BriefAskUser: emit when critical info is missing. Max 2 turns; max 4 questions per turn; 2-4 options per question; header ≤ 12 chars.'
       },
       userFacingName: () => 'BriefAskUser',
@@ -167,7 +172,9 @@ export class BriefAgent {
       settings: this.opts.settings,
       runId: `brief:${randomUUID()}`,
       systemPrompt,
-      userMessage: '请开始整理项目信息。',
+      userMessage: prevBuffer
+        ? `上一次的输出无法解析为 JSON(包含 markdown fence 或多余文字)。请**只**输出**纯 JSON object**,第一个非空白字符必须是左花括号 {,最后以右花括号 } 结尾,不要任何解释。原始 prompt 见 system prompt。`
+        : '请开始整理项目信息。',
       // No mcpServers — AskUserQuestion is now a system tool.
       // Disable all built-in file tools so the LLM only uses our
       // AskUserQuestion system tool (otherwise the SDK default
@@ -204,12 +211,21 @@ export class BriefAgent {
     if (resolve) { this.askQueue.delete(qid); resolve(value) }
   }
 
-  private handleDone(buffer: string): void {
+  private async handleDone(buffer: string): Promise<void> {
     try {
       const obj = extractFirstJsonValue(buffer)
       this.opts.onDone(validateBrief(obj))
     } catch (e: any) {
-      this.opts.onError({ code: 'PARSE', message: e?.message ?? String(e), retryable: true })
+      // First-attempt parse failed — try once more with a stricter
+      // "output only pure JSON" prompt. LLM output is often stochastic;
+      // a retry usually lands in the right shape.
+      console.warn(`[BriefAgent] parse failed (${(e as Error).message}); retrying with strict-JSON prompt`)
+      try {
+        const retryHint = `[RETRY] 上次输出无法解析为 JSON。请只输出纯 JSON object,不要 markdown fence,不要解释,不要 tool_use。`
+        await this.runOnce(retryHint, buffer.slice(0, 2000))
+      } catch (retryErr: any) {
+        this.opts.onError({ code: 'PARSE', message: e?.message ?? String(e), retryable: true })
+      }
     }
   }
 }
