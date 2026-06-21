@@ -51,10 +51,11 @@ export async function getProject(id: string): Promise<ProjectDetail | null> {
 
     // Stage 1: brief
     let brief: ProjectBrief | null = null
-    const briefPath = join(dir, 'brief.json')
+    const briefPath = join(dir, 'brief.md')
     if (existsSync(briefPath)) {
       try {
-        brief = JSON.parse(await readFile(briefPath, 'utf8')) as ProjectBrief
+        const markdown = await readFile(briefPath, 'utf8')
+        if (markdown.trim()) brief = { markdown }
       } catch { /* corrupt — leave null */ }
     }
 
@@ -238,18 +239,20 @@ export async function clearProjectSlides(id: string): Promise<void> {
 // --- Stage 1: brief ---
 
 export async function readProjectBrief(id: string): Promise<ProjectBrief | null> {
-  const p = join(getProjectsDir(), id, 'brief.json')
+  const p = join(getProjectsDir(), id, 'brief.md')
   if (!existsSync(p)) return null
   try {
-    return JSON.parse(await readFile(p, 'utf8')) as ProjectBrief
+    const markdown = await readFile(p, 'utf8')
+    if (!markdown.trim()) return null
+    return { markdown }
   } catch { return null }
 }
 
 export async function writeProjectBrief(id: string, brief: ProjectBrief): Promise<void> {
   const dir = join(getProjectsDir(), id)
   await mkdir(dir, { recursive: true })
-  const tmp = join(dir, 'brief.json.tmp')
-  const final = join(dir, 'brief.json')
-  await writeFile(tmp, JSON.stringify(brief, null, 2))
+  const tmp = join(dir, 'brief.md.tmp')
+  const final = join(dir, 'brief.md')
+  await writeFile(tmp, brief.markdown)
   await rename(tmp, final)
 }

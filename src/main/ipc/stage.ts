@@ -50,7 +50,7 @@ export function registerStageIPC() {
     const project = await projectFs.getProject(id)
     if (!project) throw new Error('project not found')
     const brief = project.brief
-    if (!brief) {
+    if (!brief?.markdown) {
       throw new Error('project has no brief — user must complete Stage 1 优化 first')
     }
     const source = await outlineFs.readSource(id)
@@ -59,13 +59,9 @@ export function registerStageIPC() {
     const key = id
     let buffer = ''
     const runner = new GenerationRunner({
-      cwd, topic: project.topic, outline: brief.name ?? source, settings, runId: id,
+      cwd, topic: project.topic, outline: brief.markdown ?? source, settings, runId: id,
       systemPrompt: await renderPrompt('OUTLINE_PROMPT', {
-        briefName: brief.name,
-        briefAudience: brief.audience,
-        briefDurationMinutes: brief.durationMinutes.toString(),
-        briefContent: brief.content,
-        briefStyle: brief.style,
+        briefMarkdown: brief.markdown,
       }),
       userMessage: '请根据以上指令生成大纲。',
       onEvent: () => {},

@@ -3,24 +3,19 @@ import type { PromptSpec } from './types.js'
 export const outlinePrompt: PromptSpec = {
   id: 'OUTLINE_PROMPT',
   title: '大纲生成',
-  description: '基于项目 brief 整理成 4-8 张幻灯片大纲,含 cover/closing 强制首尾与全局风格。',
-  defaultTemplate: `你是 PPT 大纲编辑 + 视觉策划。基于以下项目 brief 整理成 4-8 张幻灯片大纲,每页包含:
+  description: '基于项目 brief(markdown 文本)整理成 4-8 张幻灯片大纲,含 cover/closing 强制首尾与全局风格。',
+  defaultTemplate: `你是 PPT 大纲编辑 + 视觉策划。基于以下项目 brief(markdown 文本)整理成 4-8 张幻灯片大纲,每页包含:
 - title: 标题(≤ 20 字)
 - bullets: 要点数组(2-5 项,每项 ≤ 30 字)
 - notes: 可选,补充说明(≤ 50 字)
 - layout: 该页建议的视觉布局(cover / list / columns / stats / quote / closing 之一)
 
-【项目 brief】
-名称: {{briefName}}
-演讲对象和场景: {{briefAudience}}
-演讲时长(分钟): {{briefDurationMinutes}}
-演讲内容:
-{{briefContent}}
-整体风格: {{briefStyle}}
+【项目 brief(markdown 原文,直接当信息源用)】
+{{briefMarkdown}}
 
 【全局风格】(整套 PPT 保持视觉一致 — 每张幻灯片都会遵循)
-- 主色 #1677ff(蓝)
-- 强调色 #722ed1(紫)
+- 主色 #FF6600(蓝)
+- 强调色 #FF8C42(紫)
 - 暖色装饰 #f59e0b(橙,仅 cover/closing 用)
 - 字体 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif
 - 尺寸 16:9
@@ -39,12 +34,13 @@ export const outlinePrompt: PromptSpec = {
 - 最后 1 张必须是 closing
 - 中间 N-2 张循环使用 list / columns / stats / quote,避免连续 2 张同一种
 - N = 4 ~ 8 张
+- 从 brief 的「演讲时长」字段推断页数(每 1.5 分钟 1 页,clamp 3-60)
 
 输出 JSON 格式(不要解释,直接输出):
 {
   "globalStyle": {
-    "primaryColor": "#1677ff",
-    "accentColor": "#722ed1",
+    "primaryColor": "#FF6600",
+    "accentColor": "#FF8C42",
     "fontFamily": "-apple-system, \\"PingFang SC\\", \\"Microsoft YaHei\\", sans-serif",
     "aspectRatio": "16/9"
   },
@@ -57,10 +53,6 @@ export const outlinePrompt: PromptSpec = {
 }
 `,
   variables: [
-    { name: 'briefName', description: 'PPT 名称', type: 'string', example: 'AI 在教育中的应用' },
-    { name: 'briefAudience', description: '演讲对象和场景', type: 'string' },
-    { name: 'briefDurationMinutes', description: '演讲时长(分钟)', type: 'string' },
-    { name: 'briefContent', description: '演讲内容要点', type: 'string' },
-    { name: 'briefStyle', description: '整体风格', type: 'string' },
+    { name: 'briefMarkdown', description: '项目 brief 完整 markdown 文本', type: 'string', example: '# AI 在教育中的应用\n\n## 演讲对象和场景\n中学老师\n...' },
   ],
 }

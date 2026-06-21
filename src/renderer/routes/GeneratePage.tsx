@@ -5,30 +5,53 @@ import { ProjectStepper } from '../components/ProjectStepper'
 import { SlideThumbnailStrip } from '../components/SlideThumbnailStrip'
 import { SlidePreview } from '../components/SlidePreview'
 import { usePptGenerationStore } from '../stores/pptGeneration'
-import { useOutlineStore } from '../stores/outline'
-import { useProjectDetailStore } from '../stores/projectDetail'
+import { api } from '../lib/api.js'
+import type { OutlineSlide } from '@shared/types'
 
 export function GeneratePage() {
   const { id = '' } = useParams()
   const nav = useNavigate()
   const { message, modal } = AntdApp.useApp()
   const ppt = usePptGenerationStore()
-  const outline = useOutlineStore(s => s.outline)
-  const detail = useProjectDetailStore(s => s.detail)
-  const applyDetail = (usePptGenerationStore(s => s as unknown as { applyDetail: (id: string, slides: Array<{ id: string; html: string; status: 'done' | 'failed' }>) => void })).applyDetail
+  // Source of truth is the disk-persisted outline.json (read via IPC),
+  // not the in-memory outline store. The store can drift if the user
+  // re-enters the page without a full reload.
+  const [diskSlides, setDiskSlides] = useState<OutlineSlide[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [currentId, setCurrentId] = useState<string | null>(null)
 
-  // Restore slides from detail on mount (no auto-start)
+  // Load outline from disk on mount + whenever the project changes.
   useEffect(() => {
-    if (detail?.id === id && detail.slides.length > 0) {
-      applyDetail(id, detail.slides)
-      if (!currentId) setCurrentId(detail.slides[0].id)
-    } else if (outline && outline.slides.length > 0 && ppt.projectId !== id) {
-      // Fallback: init empty placeholders from outline if detail not yet loaded
-      ppt.initialize(id, outline.slides.map(s => ({ id: s.id, title: s.title })))
-      if (!currentId) setCurrentId(outline.slides[0].id)
+    let cancelled = false
+    setLoaded(false)
+    api.stage.outlineRead(id).then(outline => {
+      if (cancelled) return
+      const slides = outline?.slides ?? []
+      setDiskSlides(slides)
+      setLoaded(true)
+    }).catch(() => {
+      if (!cancelled) setLoaded(true)
+    })
+    return () => { cancelled = true }
+  }, [id])
+
+  // Sync the ppt placeholder list whenever the disk outline changes.
+  // If ppt.slides already matches the disk outline (same ids + count),
+  // do nothing — preserves generation state across re-entries.
+  useEffect(() => {
+    if (!loaded || diskSlides.length === 0) return
+    const outlineIds = new Set(diskSlides.map(s => s.id))
+    const existingIds = Object.keys(ppt.slides)
+    const sameSet =
+      existingIds.length === diskSlides.length &&
+      diskSlides.every(s => outlineIds.has(s.id))
+    if (ppt.projectId !== id || !sameSet) {
+      ppt.initialize(id, diskSlides.map(s => ({ id: s.id, title: s.title })))
     }
-  }, [detail?.id, outline, id])
+    if (!currentId || !outlineIds.has(currentId)) {
+      setCurrentId(diskSlides[0].id)
+    }
+  }, [diskSlides, loaded, id])
 
   // Toast on phase transitions
   useEffect(() => {

@@ -38,8 +38,8 @@ export const slideSystemPrompt: PromptSpec = {
 - 尺寸: {{globalStyle.aspectRatio}}
 - 你这一页的 inline style **必须**使用这些色值 / 字体，保持整套视觉一致`,
   variables: [
-    { name: 'globalStyle.primaryColor', description: '主色（默认 #1677ff）', type: 'string', example: '#1677ff' },
-    { name: 'globalStyle.accentColor', description: '强调色（默认 #722ed1）', type: 'string', example: '#722ed1' },
+    { name: 'globalStyle.primaryColor', description: '主色（默认 #FF6600）', type: 'string', example: '#FF6600' },
+    { name: 'globalStyle.accentColor', description: '强调色（默认 #FF8C42）', type: 'string', example: '#FF8C42' },
     { name: 'globalStyle.fontFamily', description: '字体栈', type: 'string' },
     { name: 'globalStyle.aspectRatio', description: '幻灯片尺寸比', type: 'string', example: '16/9' },
   ],

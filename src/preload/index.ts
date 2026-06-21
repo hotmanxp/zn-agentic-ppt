@@ -37,8 +37,8 @@ const api = {
     onError: (cb: (e: any) => void) => subscribe(IPC.GENERATION_ERROR, cb),
   },
   stage: {
-    collectSave: (id: string, topic: string, source: string) =>
-      ipcRenderer.invoke(IPC.STAGE_COLLECT_SAVE, { id, topic, source }),
+    collectSave: (id: string, topic: string, source: string, brief: any) =>
+      ipcRenderer.invoke(IPC.STAGE_COLLECT_SAVE, { id, topic, source, brief }),
     outlineGenerate: (id: string) =>
       ipcRenderer.invoke(IPC.STAGE_OUTLINE_GENERATE, { id }),
     outlineRead: (id: string) =>

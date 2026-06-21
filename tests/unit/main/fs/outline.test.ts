@@ -38,7 +38,7 @@ describe('fs/outline', () => {
 
   it('readStyle returns DEFAULT_STYLE when missing', async () => {
     const s = await readStyle(projectId)
-    expect(s.primaryColor).toBe('#1677ff')
+    expect(s.primaryColor).toBe('#FF6600')
   })
 
   it('writeStyle then readStyle round-trips', async () => {

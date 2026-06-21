@@ -14,7 +14,7 @@ export function OutlineCard({
   return (
     <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <strong style={{ color: '#1677ff', fontSize: 13 }}>第 {index + 1} 页</strong>
+        <strong style={{ color: '#FF6600', fontSize: 13 }}>第 {index + 1} 页</strong>
         <Button type="text" size="small" danger onClick={onDelete}>× 删除</Button>
       </div>
       <Input

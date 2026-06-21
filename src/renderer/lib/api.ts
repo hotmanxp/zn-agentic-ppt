@@ -55,7 +55,7 @@ export interface BridgeApi {
     userDataPath(): Promise<string>
   }
   stage: {
-    collectSave(id: string, topic: string, source: string): Promise<void>
+    collectSave(id: string, topic: string, source: string, brief: any): Promise<void>
     outlineGenerate(id: string): Promise<{ phase: 'done'; slides: OutlineSlide[] } | { phase: 'cancelled' }>
     outlineRead(id: string): Promise<{ slides: OutlineSlide[]; generatedAt: number } | null>
     outlineCancel(id: string): Promise<{ ok: boolean }>

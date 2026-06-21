@@ -48,13 +48,13 @@ const STYLE_BLOCK = `
   .slide-canvas { counter-reset: bullet; }
   .slide-canvas h1 {
     font-size: 56px; font-weight: 900; line-height: 1.05; margin: 0 0 8px;
-    background: linear-gradient(135deg, #1677ff 0%, #722ed1 100%);
+    background: linear-gradient(135deg, #FF6600 0%, #FF8C42 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
     letter-spacing: -0.025em;
   }
   .slide-canvas h1::after {
     content: ""; display: block; width: 56px; height: 4px; margin-top: 14px;
-    background: linear-gradient(90deg, #1677ff, #722ed1); border-radius: 2px;
+    background: linear-gradient(90deg, #FF6600, #FF8C42); border-radius: 2px;
   }
   .slide-canvas h2 { font-size: 30px; font-weight: 700; color: #1e293b; margin: 0 0 14px; }
   .slide-canvas h3 { font-size: 22px; font-weight: 600; color: #334155; margin: 0 0 10px; }
@@ -76,7 +76,7 @@ const STYLE_BLOCK = `
     content: counter(bullet, decimal-leading-zero);
     position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
     font-size: 20px; font-weight: 800;
-    background: linear-gradient(135deg, #1677ff, #722ed1);
+    background: linear-gradient(135deg, #FF6600, #FF8C42);
     -webkit-background-clip: text; background-clip: text; color: transparent;
     font-variant-numeric: tabular-nums;
   }
@@ -88,7 +88,7 @@ const STYLE_BLOCK = `
   .slide-canvas .skel-bullet, .slide-canvas .skel-notes { display: none; }
   .slide-canvas .slide-title, .slide-canvas div.slide-title {
     font-size: 56px; font-weight: 900; line-height: 1.05; margin: 0 0 8px;
-    background: linear-gradient(135deg, #1677ff 0%, #722ed1 100%);
+    background: linear-gradient(135deg, #FF6600 0%, #FF8C42 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
   .slide-canvas .slide-bullets, .slide-canvas ul.slide-bullets { list-style: none; padding: 0; }
@@ -102,7 +102,7 @@ const STYLE_BLOCK = `
     counter-increment: bullet; content: counter(bullet, decimal-leading-zero);
     position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
     font-size: 20px; font-weight: 800;
-    background: linear-gradient(135deg, #1677ff, #722ed1);
+    background: linear-gradient(135deg, #FF6600, #FF8C42);
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
   .slide-canvas .slide-notes, .slide-canvas .notes, .slide-canvas aside.notes, .slide-canvas p.slide-notes, .slide-canvas div.slide-notes {

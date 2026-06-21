@@ -24,11 +24,11 @@ export function ProjectStepper({ projectId }: { projectId: string }) {
             <div key={s.key} style={{ display: 'flex', alignItems: 'center', flex: i < STAGES.length - 1 ? '1' : '0' }}>
               <Link to={`/projects/${projectId}/${s.path}`} style={{
                 display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none',
-                color: active ? '#1677ff' : done ? '#16a34a' : '#9ca3af',
+                color: active ? '#FF6600' : done ? '#16a34a' : '#9ca3af',
               }}>
                 <div style={{
                   width: 32, height: 32, borderRadius: '50%',
-                  background: active ? '#1677ff' : done ? '#16a34a' : '#e5e7eb',
+                  background: active ? '#FF6600' : done ? '#16a34a' : '#e5e7eb',
                   color: active || done ? '#fff' : '#9ca3af',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600,
                 }}>{i + 1}</div>

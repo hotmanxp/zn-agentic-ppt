@@ -77,7 +77,7 @@ export function StageStreamBar({ projectId, slideId, kind, onDone, label }: Stag
             <small style={{ color: '#6b7280' }}>已生成 {chars} 字符</small>
           </div>
           <Progress percent={Math.min(99, chars / 50)} showInfo={false}
-            strokeColor={{ from: '#1677ff', to: '#722ed1' }} />
+            strokeColor={{ from: '#FF6600', to: '#FF8C42' }} />
         </div>
         <Button danger size="small" disabled={phase === 'cancelling'} onClick={() => cancel()}>
           {phase === 'cancelling' ? '取消中…' : '取消'}

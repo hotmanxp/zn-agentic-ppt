@@ -16,20 +16,18 @@ describe('renderPrompt', () => {
   it('uses default template when no override set', async () => {
     mockGetPromptOverride.mockResolvedValue(null)
     const out = await renderPrompt('OUTLINE_PROMPT', {
-      briefName: 'X', briefAudience: 'aud', briefDurationMinutes: '30',
-      briefContent: 'Y', briefStyle: 'tech',
+      briefMarkdown: '# X\n\n## 演讲对象和场景\nY',
     })
     expect(out).toContain('X')
     expect(out).toContain('Y')
   })
 
   it('uses override template when set', async () => {
-    mockGetPromptOverride.mockResolvedValue('CUSTOM {{briefName}}')
+    mockGetPromptOverride.mockResolvedValue('CUSTOM {{briefMarkdown}}')
     const out = await renderPrompt('OUTLINE_PROMPT', {
-      briefName: 'Z', briefAudience: 'aud', briefDurationMinutes: '30',
-      briefContent: 'W', briefStyle: 'tech',
+      briefMarkdown: '# Z',
     })
-    expect(out).toBe('CUSTOM Z')
+    expect(out).toBe('CUSTOM # Z')
   })
 
   it('throws on unknown prompt id', async () => {
@@ -39,10 +37,7 @@ describe('renderPrompt', () => {
 
   it('throws when caller omits a variable', async () => {
     mockGetPromptOverride.mockResolvedValue(null)
-    await expect(renderPrompt('OUTLINE_PROMPT', {
-      briefName: 'X', briefAudience: 'aud', briefDurationMinutes: '30',
-      briefContent: 'c',
-    }))
+    await expect(renderPrompt('OUTLINE_PROMPT', {}))
       .rejects.toThrowError(/缺值/)
   })
 
@@ -53,19 +48,32 @@ describe('renderPrompt', () => {
 })
 
 describe('brief-optimize prompt', () => {
-  it('declares source, hintJson, retryContext variables', () => {
+  it('declares source and hintJson variables only', () => {
     const names = briefOptimizePrompt.variables.map(v => v.name)
-    expect(names).toEqual(['source', 'hintJson', 'retryContext'])
+    expect(names).toEqual(['source', 'hintJson'])
   })
-  it('instructs agent to use AskUserQuestion tool', () => {
-    expect(briefOptimizePrompt.defaultTemplate).toMatch(/AskUserQuestion/)
-  })
-  it('lists 5 output fields', () => {
+  it('instructs agent to output a bare JSON object for asking (no XML wrapper)', () => {
     const t = briefOptimizePrompt.defaultTemplate
-    expect(t).toMatch(/"name"/)
-    expect(t).toMatch(/"audience"/)
-    expect(t).toMatch(/"durationMinutes"/)
-    expect(t).toMatch(/"content"/)
-    expect(t).toMatch(/"style"/)
+    // must reference bare {"questions": ...} JSON shape
+    expect(t).toMatch(/\{\s*"questions"/)
+    // must NOT demonstrate <briefaskuser>...</briefaskuser> as the output
+    // shape (only allowed to mention it as a "don't do this" warning).
+    expect(t).not.toMatch(/<briefaskuser>[\s\S]*?<\/briefaskuser>/)
+  })
+  it('lists 5 output fields as markdown sections', () => {
+    const t = briefOptimizePrompt.defaultTemplate
+    expect(t).toMatch(/\bname\b/)
+    expect(t).toMatch(/\baudience\b/)
+    expect(t).toMatch(/\bdurationMinutes\b/)
+    expect(t).toMatch(/\bcontent\b/)
+    expect(t).toMatch(/\bstyle\b/)
+  })
+  it('specifies markdown output (h1 for name, h2 for fields)', () => {
+    const t = briefOptimizePrompt.defaultTemplate
+    // prompt must reference `#` and `##` markdown headings
+    expect(t).toMatch(/#\s/)
+    expect(t).toMatch(/##\s/)
+    // prompt caps rounds
+    expect(t).toMatch(/2 轮/)
   })
 })

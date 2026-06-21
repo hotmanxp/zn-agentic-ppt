@@ -52,7 +52,7 @@ describe('fillTemplate', () => {
     const nested = [
       { name: 'globalStyle.primaryColor', description: '主色', type: 'string' as const },
     ]
-    const out = fillTemplate('{{globalStyle.primaryColor}}', { 'globalStyle.primaryColor': '#1677ff' }, nested)
-    expect(out).toBe('#1677ff')
+    const out = fillTemplate('{{globalStyle.primaryColor}}', { 'globalStyle.primaryColor': '#FF6600' }, nested)
+    expect(out).toBe('#FF6600')
   })
 })

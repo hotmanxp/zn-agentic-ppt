@@ -20,7 +20,7 @@ export const regeneratePrompt: PromptSpec = {
 {{currentSectionHtml}}
 
 【设计系统】
-- 主色 #1677ff（蓝），强调 #722ed1（紫）
+- 主色 #FF6600（蓝），强调 #FF8C42（紫）
 - 背景：深色渐变 linear-gradient(135deg,#0b1020 0%,#1e1b4b 100%)
 - 字体：-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif
 - **必须**写出有视觉层次的排版：可用 inline style，也可在 <section> 内用 <style>.xxx{}</style> 抽公共 class 减少重复

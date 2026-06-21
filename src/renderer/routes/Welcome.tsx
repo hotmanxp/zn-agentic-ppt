@@ -13,7 +13,7 @@ export function Welcome() {
   return (
     <div>
       <div style={{ padding: '80px 48px 48px', textAlign: 'center', background: 'linear-gradient(180deg,#fafbff,#fff)' }}>
-        <h1 style={{ fontSize: 52, margin: '0 0 16px', background: 'linear-gradient(90deg,#1677ff,#722ed1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+        <h1 style={{ fontSize: 52, margin: '0 0 16px', background: 'linear-gradient(90deg,#FF6600,#FF8C42)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           用 AI 几秒生成演示文稿
         </h1>
         <p style={{ fontSize: 18, color: '#6b7280', marginBottom: 32 }}>输入主题和大纲，Agent 输出可直接演示的 HTML PPT</p>

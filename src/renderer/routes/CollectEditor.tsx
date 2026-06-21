@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Input, App as AntdApp } from 'antd'
 import { api } from '../lib/api.js'
 import { ProjectStepper } from '../components/ProjectStepper'
@@ -16,6 +16,7 @@ const StageNavWithDirty = StageNav as unknown as React.FC<React.ComponentProps<t
 
 export function CollectEditor() {
   const { id = '' } = useParams()
+  const nav = useNavigate()
   const { message } = AntdApp.useApp()
   const detail = useProjectDetailStore(s => s.detail)
   const patchDetail = useProjectDetailStore(s => s.patchDetail)
@@ -66,7 +67,7 @@ export function CollectEditor() {
   const onSave = async () => {
     setSaving(true)
     try {
-      await api.stage.collectSave(id, topic, source)
+      await api.stage.collectSave(id, topic, source, brief)
       patchDetail({ source, topic, brief })
       setDirty(false)
       message.success('已保存')
@@ -93,14 +94,25 @@ export function CollectEditor() {
 
   // Wire onDone via direct API subscription so we capture the brief into form state
   useEffect(() => {
-    const u = api.brief.onDone((e: any) => {
-      setBrief(e.brief)
+    const u = api.brief.onDone(async (e: any) => {
+      const next: ProjectBrief = { markdown: e.brief?.markdown ?? '' }
+      setBrief(next)
       setBadge('optimized')
-      setDirty(true)
-      patchDetail({ brief: e.brief })
+      patchDetail({ brief: next })
+      // Auto-persist: write the optimized brief to disk so Stage 2
+      // (outline) can read it. Without this, the user has to remember
+      // to click "保存项目信息" and Stage 2 silently fails.
+      try {
+        await api.stage.collectSave(id, topic, source, next)
+        setDirty(false)
+      } catch (err: any) {
+        // Non-fatal: brief is still in memory + detail store, so they
+        // can retry by clicking the Save button manually.
+        console.warn('[CollectEditor] auto-save after optimize failed:', err)
+      }
     })
     return u
-  }, [patchDetail])
+  }, [patchDetail, id, topic, source])
 
   const onBriefChange = (b: ProjectBrief) => {
     setBrief(b)
@@ -114,7 +126,7 @@ export function CollectEditor() {
       <div style={{ flex: 1, padding: '32px 48px', background: '#fafbff', overflow: 'auto' }}>
         <h2 style={{ margin: '0 0 4px' }}>第 1 步 · 项目信息</h2>
         <p style={{ color: '#6b7280', margin: '0 0 20px' }}>
-          上方粘贴原始描述,下方填/优化结构化字段,下一步将基于结构化字段生成大纲。
+          上方粘贴原始描述,点击「优化」让 AI 生成 markdown,直接回填到下方文本框,下一步将基于此文本生成大纲。
         </p>
 
         <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginBottom: 16 }}>
@@ -134,17 +146,17 @@ export function CollectEditor() {
           <small style={{ color: '#9ca3af' }}>本框内容仅供优化用,不会直接进大纲。</small>
         </div>
 
-        <ProjectBriefForm value={brief} onChange={onBriefChange} badge={badge} />
+        <ProjectBriefForm
+          value={brief}
+          onChange={onBriefChange}
+          badge={badge}
+          optimizing={optimizing}
+          onOptimize={onOptimize}
+        />
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <small style={{ color: '#9ca3af' }}>字符数:{source.length}</small>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button onClick={onSave} loading={saving} disabled={!dirty}>保存项目信息</Button>
-            <Button type="primary" onClick={onOptimize} loading={optimizing} disabled={optimizing}>
-              ✨ 优化
-            </Button>
-          </div>
-        </div>
+        <small style={{ display: 'block', textAlign: 'right', color: '#9ca3af', marginBottom: 8 }}>
+          原始描述字符数:{source.length}
+        </small>
       </div>
       <StageNavWithDirty
         projectId={id}
@@ -152,6 +164,15 @@ export function CollectEditor() {
         canNext={source.trim().length > 0 && brief !== null && !optimizing}
         dirty={dirty}
         nextLabel="下一步:生成大纲"
+        leftAction={
+          <>
+            <small style={{ color: dirty ? '#FF6600' : '#9ca3af' }}>
+              {dirty ? '● 有未保存的修改' : '已保存'}
+            </small>
+            <Button onClick={onSave} loading={saving} disabled={!dirty}>保存项目信息</Button>
+          </>
+        }
+        onNext={() => nav(`/projects/${id}/outline`)}
       />
       <AskUserQuestionModal />
     </div>

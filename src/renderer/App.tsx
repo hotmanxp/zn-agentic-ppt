@@ -22,12 +22,20 @@ export function App() {
   useHtmlGenerationSubscription()
 
   return (
-    <ConfigProvider>
+    <ConfigProvider
+      theme={{
+        token: {
+          colorPrimary: '#FF6600',
+          colorInfo: '#FF6600',
+          colorLink: '#FF6600',
+        },
+      }}
+    >
       <AntdApp>
         <HashRouter>
           <Layout style={{ minHeight: '100vh' }}>
             <Header style={{ display: 'flex', alignItems: 'center', gap: 24, background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
-              <strong style={{ color: '#1677ff', fontSize: 18 }}>⬢ ZN Agentic PPT</strong>
+              <strong style={{ color: '#FF6600', fontSize: 18 }}>⬢ ZN Agentic PPT</strong>
               <Menu mode="horizontal" selectedKeys={[]} style={{ flex: 1, border: 'none' }} items={[
                 { key: '/', label: <NavLink to="/">欢迎</NavLink> },
                 { key: '/projects', label: <NavLink to="/projects">项目</NavLink> },

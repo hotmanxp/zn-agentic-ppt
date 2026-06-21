@@ -5,7 +5,7 @@ export function buildSystemPrompt(topic: string, outline: string): string {
 - 输出**完整 HTML 文档**（<!DOCTYPE html> ... </html>），不是片段
 - 16:9 比例 (aspect-ratio: 16/9)
 - 内嵌 CSS（不依赖外部资源，offline 友好）
-- 主题风格：现代简约，主色 #1677ff，强调 #722ed1
+- 主题风格：现代简约，主色 #FF6600，强调 #FF8C42
 - 每张幻灯片结构：
     <section class="slide">
       <h1>{标题}</h1>

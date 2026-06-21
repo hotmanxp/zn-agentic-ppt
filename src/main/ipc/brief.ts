@@ -24,8 +24,8 @@ export function registerBriefIPC(): void {
     activeAgent = new BriefAgent({
       cwd, settings, source, hint,
       onQuestion: (q: AskUserRequest) => broadcast(IPC.STAGE_ASK_USER_QUESTION, { projectId: id, ...q }),
-      onDone: (b: ProjectBrief) => {
-        broadcast(IPC.STAGE_BRIEF_OPTIMIZE_DONE, { projectId: id, brief: b })
+      onDone: (brief: ProjectBrief) => {
+        broadcast(IPC.STAGE_BRIEF_OPTIMIZE_DONE, { projectId: id, brief })
         activeAgent = null
       },
       onError: (e: AppError) => {

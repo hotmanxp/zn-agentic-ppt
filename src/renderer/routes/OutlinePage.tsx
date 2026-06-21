@@ -85,7 +85,48 @@ export function OutlinePage() {
     nav(`/projects/${id}/generate`)
   }
 
-  if (localSlides.length === 0 && !outline) return null
+  // Empty state: no slides yet — show a "Generate outline" CTA instead
+  // of returning null (which left the page blank with no path forward).
+  if (localSlides.length === 0 && !outline) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
+        <ProjectStepper projectId={id} />
+        <div style={{ flex: 1, padding: '64px 48px', background: '#fafbff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <h2 style={{ margin: '0 0 8px' }}>第 2 步 · 大纲编辑</h2>
+          <p style={{ color: '#6b7280', margin: '0 0 24px', textAlign: 'center', maxWidth: 480 }}>
+            项目信息已就绪。点击下方按钮,让 AI 基于项目信息生成大纲。
+          </p>
+          <Button
+            type="primary"
+            size="large"
+            onClick={() => setStreaming(true)}
+            style={{ minWidth: 200 }}
+          >
+            ✨ 生成大纲
+          </Button>
+        </div>
+        <StageNavWithDirty
+          projectId={id}
+          current="outline"
+          canNext={false}
+          dirty={false}
+        />
+        <div style={{ position: 'absolute', top: 100, right: 32, width: 360 }}>
+          {streaming ? (
+            <StageStreamBar
+              kind="outline"
+              projectId={id}
+              onDone={(r) => {
+                setLocalSlides(r.slides ?? [])
+                setSavedSlides(r.slides ?? [])
+                setStreaming(false)
+              }}
+            />
+          ) : null}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>

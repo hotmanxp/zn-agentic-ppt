@@ -22,7 +22,7 @@ export function Settings() {
             onClick={() => setTab(t.key)}
             style={{
               padding: '8px 12px',
-              color: tab === t.key ? '#1677ff' : '#374151',
+              color: tab === t.key ? '#FF6600' : '#374151',
               background: tab === t.key ? '#eff6ff' : 'transparent',
               borderRadius: 6,
               fontWeight: tab === t.key ? 500 : 400,

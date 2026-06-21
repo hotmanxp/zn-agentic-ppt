@@ -35,9 +35,20 @@ export interface RunnerOptions {
    * plus headroom for retries, so it passes 10.
    */
   maxTurns?: number
+  /**
+   * Resume the most recent session for this cwd (no sessionId needed).
+   * Sets `continue: true` on the SDK query so prior turns stay in context.
+   * Used by BriefAgent to maintain multi-turn conversation context when
+   * the LLM asks the user clarifying questions.
+   */
+  continueSession?: boolean
+  /**
+   * Resume a specific session by ID. Takes precedence over `continueSession`.
+   */
+  resumeSessionId?: string
   onEvent: (msg: any) => void
   onProgress: (info: { phase: string; current: number }) => void
-  onDone: (info: { html: string; durationMs: number }) => void
+  onDone: (info: { html: string; durationMs: number; sessionId?: string }) => void
   onError: (info: { error: { code: string; message: string; retryable: boolean } }) => void
 }
 
@@ -68,6 +79,9 @@ export class GenerationRunner {
       options: {
         cwd: this.opts.cwd,
         model: this.opts.settings.llm.model,
+        // Resume prior session context (used by BriefAgent multi-turn).
+        ...(this.opts.continueSession ? { continue: true } : {}),
+        ...(this.opts.resumeSessionId ? { resume: this.opts.resumeSessionId } : {}),
         // SDK accepts systemPrompt in 3 shapes (upstream query.ts:1081-1092):
         //   - string                       → fully replaces default
         //   - {type:'custom',content}      → fully replaces default
@@ -131,7 +145,12 @@ export class GenerationRunner {
   private finish(): void {
     if (this.resultType === 'success') {
       this.html = this.buffer
-      this.opts.onDone({ html: this.buffer, durationMs: this.durationMs })
+      const sessionId = this.query?.sessionId
+      this.opts.onDone({
+        html: this.buffer,
+        durationMs: this.durationMs,
+        ...(sessionId ? { sessionId } : {}),
+      })
     } else {
       this.opts.onError({
         error: {

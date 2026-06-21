@@ -1,6 +1,6 @@
 import { DEFAULT_STYLE, type StyleSettings } from '@shared/types'
 
-const COLORS = ['#1677ff', '#722ed1', '#16a34a', '#dc2626', '#0f172a']
+const COLORS = ['#FF6600', '#FF8C42', '#16a34a', '#dc2626', '#0f172a']
 const LAYOUTS = [
   { key: 'minimal' as const, label: '简约 16:9' },
   { key: 'fullbg' as const, label: '全屏背景' },
@@ -20,7 +20,7 @@ export function StyleControls({ style, onChange }: {
         {COLORS.map(c => (
           <div key={c} onClick={() => onChange({ primaryColor: c })} style={{
             padding: '6px 12px',
-            border: style.primaryColor === c ? '2px solid #1677ff' : '1px solid #d1d5db',
+            border: style.primaryColor === c ? '2px solid #FF6600' : '1px solid #d1d5db',
             background: style.primaryColor === c ? '#eff6ff' : 'white',
             borderRadius: 16, fontSize: 12, cursor: 'pointer',
           }}>{c} {c === DEFAULT_STYLE.primaryColor ? '(默认)' : ''}</div>
@@ -30,7 +30,7 @@ export function StyleControls({ style, onChange }: {
         {LAYOUTS.map(l => (
           <div key={l.key} onClick={() => onChange({ layout: l.key })} style={{
             padding: '6px 12px',
-            border: style.layout === l.key ? '2px solid #1677ff' : '1px solid #d1d5db',
+            border: style.layout === l.key ? '2px solid #FF6600' : '1px solid #d1d5db',
             background: style.layout === l.key ? '#eff6ff' : 'white',
             borderRadius: 6, fontSize: 12, cursor: 'pointer',
           }}>{l.label}</div>

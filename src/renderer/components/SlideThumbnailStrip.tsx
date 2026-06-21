@@ -1,4 +1,3 @@
-import { Tooltip } from 'antd'
 import type { PptSlide } from '../stores/pptGeneration.js'
 
 const STATUS_COLOR: Record<string, string> = {
@@ -35,35 +34,34 @@ export function SlideThumbnailStrip({ slides, currentId, onSelect }: SlideThumbn
           const label = STATUS_LABEL[s.status] ?? s.status
           const isCurrent = s.id === currentId
           return (
-            <Tooltip key={s.id} title={`${s.title} · ${label}`}>
-              <button
-                onClick={() => onSelect(s.id)}
-                style={{
-                  width: '100%', textAlign: 'left', cursor: 'pointer',
-                  padding: 10, borderRadius: 6,
-                  border: isCurrent ? '2px solid #1677ff' : '1px solid #e5e7eb',
-                  background: isCurrent ? '#eff6ff' : '#fff',
-                  display: 'flex', alignItems: 'center', gap: 8,
-                }}
-              >
+            <button
+              key={s.id}
+              onClick={() => onSelect(s.id)}
+              style={{
+                width: '100%', textAlign: 'left', cursor: 'pointer',
+                padding: 10, borderRadius: 6,
+                border: isCurrent ? '2px solid #FF6600' : '1px solid #e5e7eb',
+                background: isCurrent ? '#eff6ff' : '#fff',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}
+            >
+              <div style={{
+                width: 28, height: 18, flexShrink: 0, borderRadius: 3,
+                background: color, color: '#fff', fontSize: 11, fontWeight: 600,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {i + 1}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
-                  width: 28, height: 18, flexShrink: 0, borderRadius: 3,
-                  background: color, color: '#fff', fontSize: 11, fontWeight: 600,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, color: '#111827', overflow: 'hidden',
+                  textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
-                  {i + 1}
+                  {s.title}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontSize: 12, color: '#111827', overflow: 'hidden',
-                    textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>
-                    {s.title}
-                  </div>
-                  <div style={{ fontSize: 10, color: '#6b7280' }}>{label}</div>
-                </div>
-              </button>
-            </Tooltip>
+                <div style={{ fontSize: 10, color: '#6b7280' }}>{label}</div>
+              </div>
+            </button>
           )
         })}
       </div>

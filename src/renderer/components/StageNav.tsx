@@ -1,7 +1,7 @@
 import { Button, App as AntdApp } from 'antd'
 import { Link } from 'react-router-dom'
 
-export function StageNav({ projectId, current, canBack = true, canNext = true, onNext, nextLabel = '下一步', dirty = false }: {
+export function StageNav({ projectId, current, canBack = true, canNext = true, onNext, nextLabel = '下一步', dirty = false, leftAction }: {
   projectId: string
   current: 'collect' | 'outline' | 'generate' | 'fine-tune'
   canBack?: boolean
@@ -9,6 +9,8 @@ export function StageNav({ projectId, current, canBack = true, canNext = true, o
   onNext?: () => void
   nextLabel?: string
   dirty?: boolean
+  /** Extra element rendered to the LEFT of "← 上一步" (e.g. a Save button). */
+  leftAction?: React.ReactNode
 }) {
   const { modal } = AntdApp.useApp()
   const order: typeof current[] = ['collect', 'outline', 'generate', 'fine-tune']
@@ -31,12 +33,15 @@ export function StageNav({ projectId, current, canBack = true, canNext = true, o
   }
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: 16, background: '#fff', borderTop: '1px solid #e5e7eb' }}>
-      {back ? (
-        <Link to={`/projects/${projectId}/${back}`}>
-          <Button disabled={!canBack}>← 上一步</Button>
-        </Link>
-      ) : <div />}
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 16, background: '#fff', borderTop: '1px solid #e5e7eb', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {leftAction}
+        {back ? (
+          <Link to={`/projects/${projectId}/${back}`}>
+            <Button disabled={!canBack}>← 上一步</Button>
+          </Link>
+        ) : null}
+      </div>
       {onNext ? (
         <Button type="primary" disabled={!canNext} onClick={handleNext}>{nextLabel} →</Button>
       ) : <div />}

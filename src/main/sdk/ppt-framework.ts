@@ -34,7 +34,7 @@ export function generateFrameworkHtml(opts: {
     }
     #ppt-root > section::before {
       content: ""; position: absolute; left: 0; top: 80px; bottom: 80px; width: 6px;
-      background: linear-gradient(180deg, #1677ff 0%, #722ed1 100%);
+      background: linear-gradient(180deg, #FF6600 0%, #FF8C42 100%);
       border-radius: 0 4px 4px 0;
     }
     #ppt-root > section::after {
@@ -45,13 +45,13 @@ export function generateFrameworkHtml(opts: {
     h1, h2, h3 { color: #fff; }
     h1 {
       font-size: 60px; font-weight: 800; margin: 0 0 12px; line-height: 1.1;
-      background: linear-gradient(135deg, #1677ff 0%, #722ed1 100%);
+      background: linear-gradient(135deg, #FF6600 0%, #FF8C42 100%);
       -webkit-background-clip: text; background-clip: text; color: transparent;
       letter-spacing: -0.02em;
     }
     h1::after {
       content: ""; display: block; width: 60px; height: 4px; margin-top: 16px;
-      background: linear-gradient(90deg, #1677ff, #722ed1); border-radius: 2px;
+      background: linear-gradient(90deg, #FF6600, #FF8C42); border-radius: 2px;
     }
     h2 { font-size: 36px; font-weight: 700; margin: 0 0 16px; color: rgba(255,255,255,0.92); }
     h3 { font-size: 24px; font-weight: 600; margin: 0 0 12px; color: rgba(255,255,255,0.85); }
@@ -76,7 +76,7 @@ export function generateFrameworkHtml(opts: {
       content: counter(bullet, decimal-leading-zero);
       position: absolute; left: 18px; top: 50%; transform: translateY(-50%);
       font-size: 22px; font-weight: 800;
-      background: linear-gradient(135deg, #1677ff, #722ed1);
+      background: linear-gradient(135deg, #FF6600, #FF8C42);
       -webkit-background-clip: text; background-clip: text; color: transparent;
       font-variant-numeric: tabular-nums;
     }

@@ -145,7 +145,7 @@ describe('getProject merge', () => {
     writeMeta(projectId)
     const result = await getProject(projectId)
     expect(result?.style).toEqual({
-      primaryColor: '#1677ff',
+      primaryColor: '#FF6600',
       layout: 'minimal',
       fontFamily: '-apple-system, sans-serif',
     })
@@ -160,21 +160,21 @@ describe('brief persistence', () => {
   })
   afterEach(() => rmSync(dir, { recursive: true, force: true }))
 
-  it('readProjectBrief returns null when brief.json missing', async () => {
+  it('readProjectBrief returns null when brief.md missing', async () => {
     const meta = await createProject('topic')
     expect(await readProjectBrief(meta.id)).toBeNull()
   })
 
   it('writeProjectBrief + readProjectBrief round-trips', async () => {
     const meta = await createProject('topic')
-    const brief: ProjectBrief = { name: 'n', audience: 'a', durationMinutes: 30, pageCountEst: 20, content: 'c', style: 's' }
+    const brief: ProjectBrief = { markdown: '# N\n\n## 演讲对象和场景\na\n\n## 演讲时长(分钟)\n30\n\n## 演讲内容\nc\n\n## 整体风格\ns' }
     await writeProjectBrief(meta.id, brief)
     expect(await readProjectBrief(meta.id)).toEqual(brief)
   })
 
-  it('getProject includes brief when brief.json exists', async () => {
+  it('getProject includes brief when brief.md exists', async () => {
     const meta = await createProject('topic')
-    const brief: ProjectBrief = { name: 'n', audience: 'a', durationMinutes: 30, pageCountEst: 20, content: 'c', style: 's' }
+    const brief: ProjectBrief = { markdown: '# N\n\n## 演讲对象和场景\na\n' }
     await writeProjectBrief(meta.id, brief)
     const detail = await getProject(meta.id)
     expect(detail?.brief).toEqual(brief)

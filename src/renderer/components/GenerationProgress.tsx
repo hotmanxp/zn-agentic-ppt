@@ -12,7 +12,7 @@ export function GenerationProgress({ progress, onCancel }: {
           <strong style={{ fontSize: 13 }}>生成中…</strong>
           <small style={{ color: '#6b7280' }}>已生成 {progress} 字符</small>
         </div>
-        <Progress percent={Math.min(99, progress / 50)} showInfo={false} strokeColor={{ from: '#1677ff', to: '#722ed1' }} />
+        <Progress percent={Math.min(99, progress / 50)} showInfo={false} strokeColor={{ from: '#FF6600', to: '#FF8C42' }} />
       </div>
       <Button danger size="small" onClick={onCancel}>取消</Button>
     </div>

@@ -18,9 +18,9 @@ export function SlideList({
           <div key={s.id} onClick={() => onSelect(s.id)} style={{
             padding: '10px 12px', marginBottom: 4, borderRadius: 4, cursor: 'pointer',
             background: active ? '#eff6ff' : 'transparent',
-            borderLeft: active ? '3px solid #1677ff' : '3px solid transparent',
+            borderLeft: active ? '3px solid #FF6600' : '3px solid transparent',
           }}>
-            <div style={{ fontSize: 12, color: active ? '#1677ff' : '#6b7280', fontWeight: 500 }}>
+            <div style={{ fontSize: 12, color: active ? '#FF6600' : '#6b7280', fontWeight: 500 }}>
               第 {i + 1} 页
             </div>
             <div style={{ fontSize: 13, fontWeight: active ? 500 : 400 }}>{s.title}</div>
