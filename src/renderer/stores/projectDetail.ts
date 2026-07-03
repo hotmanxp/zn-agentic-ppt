@@ -9,7 +9,7 @@ interface ProjectDetailState {
   loading: boolean
   error: string | null
   loadedProjectId: string | null
-  load: (id: string) => Promise<void>
+  load: (id: string) => Promise<ProjectDetail | null>
   reload: () => Promise<void>
   patchDetail: (patch: Partial<ProjectDetail>) => void
   applySnapshot: (d: ProjectDetail) => void
@@ -23,18 +23,20 @@ export const useProjectDetailStore = create<ProjectDetailState>((set, get) => ({
   loadedProjectId: null,
 
   load: async (id) => {
-    if (get().loadedProjectId === id && get().detail) return
+    if (get().loadedProjectId === id && get().detail) return get().detail
     set({ loading: true, error: null })
     try {
       const detail = await api.project.detail(id)
       if (!detail) {
         set({ loading: false, error: '项目不存在' })
-        return
+        return null
       }
       set({ detail, loadedProjectId: id, loading: false, error: null })
       get().applySnapshot(detail)
+      return detail
     } catch (e: any) {
       set({ loading: false, error: e?.message ?? '加载失败' })
+      return null
     }
   },
 
@@ -59,10 +61,16 @@ export const useProjectDetailStore = create<ProjectDetailState>((set, get) => ({
       })
     }
     if (d.slides.length > 0) {
-      // TODO(stores-track): pptGeneration.applyDetail will be added by Task 11.
-      // Call site intentionally passes a single slides[]; the contract is whatever
-      // the stores track implements for cross-store restoration.
-      ;(usePptGenerationStore.getState() as unknown as { applyDetail: (s: typeof d.slides) => void }).applyDetail(d.slides)
+      usePptGenerationStore.getState().applyDetail(
+        d.id,
+        d.slides.map((s, i) => ({
+          id: s.id,
+          html: s.html,
+          layout: s.layout ?? ((i % 5) + 1) as 1 | 2 | 3 | 4 | 5,
+          status: s.status,
+          error: s.error,
+        })),
+      )
     }
   },
 

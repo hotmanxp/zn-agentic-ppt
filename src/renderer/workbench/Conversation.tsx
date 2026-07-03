@@ -96,22 +96,10 @@ export function Conversation() {
   const removeOutlineItem = useWorkbenchStore((s) => s.removeOutlineItem)
   const moveOutlineItem = useWorkbenchStore((s) => s.moveOutlineItem)
   const openDeckPreview = useWorkbenchStore((s) => s.openDeckPreview)
-  const appendDeckVersion = (revision?: string, revisionId?: string) => {
-    const slides = usePptGenerationStore.getState().slides
-    const completed = Object.values(slides).filter((s) => s.status === 'done').length
-    useWorkbenchStore.setState((s) => ({
-      deckVersions: [
-        ...s.deckVersions,
-        {
-          id: `run-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          revision,
-          revisionId,
-          pageCount: completed || 1,
-          sourceCount: selectedSources.length,
-          createdAt: Date.now(),
-        },
-      ],
-    }))
+  const searchProgress = useWorkbenchStore((s) => s.searchProgress)
+  const appendDeckVersion = (_revision?: string, _revisionId?: string) => {
+    // No-op stub kept for the onOpenDeck callback signature. Deck versions
+    // are seeded exclusively by the Workbench watcher on `pptGen === 'done'`.
   }
 
   const sources: SourceItem[] = [...KNOWN_SOURCES, ...uploadedSources]
@@ -136,7 +124,7 @@ export function Conversation() {
             <ProcessCard
               title="正在查找资料"
               description="我会先检索企业知识库和本次补充材料，再筛掉不可用版本。"
-              progress={Math.min(100, Math.round(((stageStream.phase === 'done' ? 100 : 0)) / 1))}
+              progress={searchProgress}
               steps={SOURCE_SEARCH_STEPS}
             />
           </div>
@@ -234,22 +222,6 @@ export function Conversation() {
                 }}
               />
             ))}
-            {phase === 'complete' && deckVersions.length === 0 && (() => { appendDeckVersion(); return null })()}
-            {phase === 'complete' && deckVersions.length === 0 && (
-              <CompletionCard
-                brief={brief}
-                scenario={scenario}
-                version={{
-                  id: 'initial',
-                  pageCount: Math.max(1, pptGen.total),
-                  sourceCount: selectedSources.length,
-                  createdAt: Date.now(),
-                }}
-                versionNumber={1}
-                isLatest
-                onOpenDeck={openDeckPreview}
-              />
-            )}
           </div>
         </article>
       )}

@@ -19,6 +19,7 @@ interface State {
   phase: Phase
   current: AskUserRequest | null
   error: string | null
+  lastBrief: ProjectBrief | null
   start: (id: string, hint: ProjectBrief | null) => Promise<void>
   cancel: () => Promise<void>
   answer: (qid: string, value: Record<string, string | string[]>) => void
@@ -32,11 +33,12 @@ export const useBriefOptimizeStore = create<State>((set, get) => ({
   phase: 'idle',
   current: null,
   error: null,
+  lastBrief: null,
   start: async (id, hint) => {
     set({ phase: 'optimizing', current: null, error: null })
-    api.brief.onAskUserQuestion((e: any) => get().applyQuestion(e))
-    api.brief.onDone((e: any) => get().applyDone(e.brief))
-    api.brief.onError((e: any) => get().applyError(e.error))
+    // Note: subscriptions to ask/done/error events live in
+    // `useWorkbenchSubscriptions` (mounted at Workbench root) so they
+    // are not duplicated on every `start` call.
     await api.brief.optimize(id, hint)
   },
   cancel: async () => { await api.brief.cancel(); set({ phase: 'idle', current: null }) },
@@ -45,7 +47,7 @@ export const useBriefOptimizeStore = create<State>((set, get) => ({
     set({ phase: 'optimizing', current: null })
   },
   applyQuestion: (q) => set({ phase: 'asking', current: q }),
-  applyDone: (b) => set({ phase: 'done', current: null, error: null }),
+  applyDone: (b) => set({ phase: 'done', current: null, error: null, lastBrief: b }),
   applyError: (e) => set({ phase: 'error', current: null, error: e?.message ?? 'unknown' }),
-  reset: () => set({ phase: 'idle', current: null, error: null }),
+  reset: () => set({ phase: 'idle', current: null, error: null, lastBrief: null }),
 }))

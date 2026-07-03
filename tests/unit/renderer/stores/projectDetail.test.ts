@@ -80,7 +80,9 @@ describe('useProjectDetailStore', () => {
       slides: detail.structuredOutline!.slides,
       generatedAt: 1,
     })
-    expect(usePptGenerationStore.getState().applyDetail).toHaveBeenCalledWith(detail.slides)
+    expect(usePptGenerationStore.getState().applyDetail).toHaveBeenCalledWith('p1', [
+      { id: 's1', html: '<x/>', layout: 1, status: 'done' },
+    ])
   })
 
   it('applySnapshot: does not dispatch outline if structuredOutline is null', () => {

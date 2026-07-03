@@ -3,6 +3,7 @@ import { api } from '../lib/api.js'
 import { useOutlineStore } from './outline.js'
 import { usePptGenerationStore } from './pptGeneration.js'
 import { useProjectDetailStore } from './projectDetail.js'
+import { useStageStreamStore } from './stageStream.js'
 import type { OutlineSlide, ProjectBrief, ProjectDetail } from '@shared/types'
 import {
   DEFAULT_BRIEF,
@@ -40,11 +41,13 @@ interface WorkbenchState {
   deckVersions: DeckVersion[]
   pendingRevisionId: string | null
 
+  searchProgress: number
+
   sidebarCollapsed: boolean
   artifactOpen: boolean
   artifactTab: ArtifactTab
   deckPreviewOpen: boolean
-  deckPreviewRatio: number
+  deckPreviewRatio: number // reserved for future drag-resize handle
   selectedSlide: number
   activeSourceId: string | null
   sourceMenuOpen: boolean
@@ -52,7 +55,7 @@ interface WorkbenchState {
 
   // Actions
   setPhase: (p: WorkbenchPhase) => void
-  openProject: (id: string, detail: ProjectDetail | null) => void
+  openProject: (id: string) => Promise<void>
   reset: () => void
 
   beginClarification: (next?: Scenario) => Promise<string | null>
@@ -87,6 +90,7 @@ interface WorkbenchState {
   closeDeckPreview: () => void
   setDeckPreviewRatio: (r: number) => void
 
+  setSearchProgress: (n: number) => void
   setToast: (msg: string | null) => void
 }
 
@@ -139,6 +143,8 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   deckVersions: [],
   pendingRevisionId: null,
 
+  searchProgress: 0,
+
   sidebarCollapsed: false,
   artifactOpen: true,
   artifactTab: 'deck',
@@ -151,10 +157,14 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
 
   setPhase: (p) => set({ phase: p }),
 
-  openProject: (id, detail) => {
-    useProjectDetailStore.getState().load(id)
+  openProject: async (id: string) => {
+    const detail = await useProjectDetailStore.getState().load(id)
+    if (!detail) {
+      set({ toast: '项目不存在' })
+      return
+    }
     const phase = derivePhaseFromDetail(detail)
-    const outlineDraft = detail?.structuredOutline
+    const outlineDraft = detail.structuredOutline
       ? normalizeOutline(detail.structuredOutline.slides)
       : []
     set({
@@ -170,23 +180,12 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       sourceMenuOpen: false,
       toast: null,
     })
-    if (detail?.slides && detail.slides.length > 0) {
-      usePptGenerationStore.getState().applyDetail(
-        id,
-        detail.slides.map((s, i) => ({
-          id: s.id,
-          html: s.html,
-          layout: s.layout ?? ((i % 5) + 1) as 1 | 2 | 3 | 4 | 5,
-          status: s.status,
-          error: s.error,
-        })),
-      )
-    }
   },
 
   reset: () => {
     useOutlineStore.getState().setOutline([], 0)
     usePptGenerationStore.getState().reset()
+    useStageStreamStore.getState().reset()
     set({
       phase: 'idle',
       activeProjectId: null,
@@ -200,6 +199,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       revisions: [],
       deckVersions: [],
       pendingRevisionId: null,
+      searchProgress: 0,
       selectedSources: KNOWN_SOURCES.map(s => s.id),
       uploadedSources: [],
       deckPreviewOpen: false,
@@ -234,10 +234,17 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   },
 
   confirmBrief: async (id) => {
-    const { scenario, brief, clarificationNotes } = get()
-    const briefPayload: ProjectBrief = { markdown: JSON.stringify({ ...brief, scenario: scenario.id }) }
-    await api.stage.collectSave(id, brief.client, '', briefPayload)
+    const { scenario, brief, clarificationNotes, selectedSources, sourceRequirements } = get()
     const summary = buildTaskSummary(scenario, brief, clarificationNotes.join('；'))
+    const payload = JSON.stringify({
+      brief,
+      scenario: scenario.id,
+      selectedSources,
+      clarificationNotes,
+      sourceRequirements,
+    })
+    const briefPayload: ProjectBrief = { markdown: payload }
+    await api.stage.collectSave(id, summary, JSON.stringify(selectedSources), briefPayload)
     set({
       taskText: summary,
       artifactTab: 'sources',
@@ -247,24 +254,29 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   },
 
   approveSources: async (id) => {
+    useStageStreamStore.getState().reset()
     set({ phase: 'buildingOutline' })
-    const slides = await useOutlineStore.getState().generate(id, get().taskText, '', { markdown: get().taskText })
-    const outlineDraft = normalizeOutline(slides)
+    const r = await api.stage.outlineGenerate(id)
+    const slides = r.phase === 'done' ? r.slides : []
     set({
-      outlineDraft,
+      outlineDraft: normalizeOutline(slides),
       artifactTab: 'deck',
     })
-    set({ phase: 'outline' })
+    // Phase transition to 'outline' is driven by the Workbench watcher
+    // once stageStream reports 'done'.
+    void useOutlineStore.getState().setOutline(slides, Date.now())
   },
 
   approveOutline: async (id) => {
+    usePptGenerationStore.getState().reset()
     set({
       phase: 'generating',
       pendingRevisionId: null,
       artifactTab: 'deck',
     })
-    await usePptGenerationStore.getState().start(id)
-    // Source-of-truth stores drive phase progression in Workbench.tsx
+    // Phase transition to 'complete' / 'outline' (cancelled) / etc.
+    // is driven by the Workbench watcher once pptGen reports its phase.
+    void usePptGenerationStore.getState().start(id)
   },
 
   startRevision: async (id, text) => {
@@ -441,6 +453,8 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   openDeckPreview: () => set({ deckPreviewOpen: true, deckPreviewRatio: 60, selectedSlide: 0 }),
   closeDeckPreview: () => set({ deckPreviewOpen: false }),
   setDeckPreviewRatio: (r) => set({ deckPreviewRatio: Math.max(40, Math.min(60, r)) }),
+
+  setSearchProgress: (n) => set({ searchProgress: n }),
 
   setToast: (msg) => set({ toast: msg }),
 }))

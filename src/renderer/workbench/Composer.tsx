@@ -7,8 +7,11 @@ import {
   PaperPlaneTilt,
   SpinnerGap,
   UploadSimple,
+  X,
 } from '@phosphor-icons/react'
 import { useWorkbenchStore } from '../stores/workbench.js'
+import { useStageStreamStore } from '../stores/stageStream.js'
+import { usePptGenerationStore } from '../stores/pptGeneration.js'
 import { KNOWN_SOURCES } from './data/sources.js'
 import { SourceIcon } from './primitives/SourceIcon.js'
 import type { SourceItem, WorkbenchPhase } from './data/types.js'
@@ -66,6 +69,7 @@ export function Composer({ onApproveSources, onApproveOutline }: ComposerProps) 
   }
 
   if (isBusy) {
+    const cancelable = phase === 'buildingOutline' || phase === 'generating'
     return (
       <div className="composer-wrap composer-wrap-busy">
         <div className="composer-busy-state">
@@ -77,6 +81,19 @@ export function Composer({ onApproveSources, onApproveOutline }: ComposerProps) 
                 ? '正在生成大纲，完成后会请你确认大纲'
                 : '正在生成 PPT，完成后会自动进入预览'}
           </span>
+          {cancelable && (
+            <button
+              className="quiet-button"
+              style={{ marginLeft: 12 }}
+              onClick={() => {
+                if (phase === 'buildingOutline') void useStageStreamStore.getState().cancel()
+                else void usePptGenerationStore.getState().cancel()
+              }}
+              aria-label="取消"
+            >
+              <X size={14} /> 取消
+            </button>
+          )}
         </div>
       </div>
     )

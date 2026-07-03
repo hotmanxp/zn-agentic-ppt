@@ -10,9 +10,20 @@ export function DeckPreviewDrawer() {
   const setArtifactTab = useWorkbenchStore((s) => s.setArtifactTab)
   const setToast = useWorkbenchStore((s) => s.setToast)
   const slides = usePptGenerationStore((s) => s.slides)
+  const outlineItems = useWorkbenchStore((s) => s.outlineDraft)
+  const selectedSlideIdx = useWorkbenchStore((s) => s.selectedSlide)
   const slideCount = Object.values(slides).length
 
   if (!open) return null
+
+  const handleOpenSource = () => {
+    const item = outlineItems[selectedSlideIdx]
+    const src = (item?.source ?? '').split(/[,，]/).map((s) => s.trim()).filter(Boolean)[0]
+    closePreview()
+    setArtifactTab('sources')
+    setActiveSource(src || 'solution')
+    setToast(`已定位到引用来源：${src || 'solution'}`)
+  }
 
   return (
     <aside className="deck-preview-panel" aria-label="PPT预览">
@@ -30,14 +41,7 @@ export function DeckPreviewDrawer() {
             <small>{slideCount} 页 · 实时生成中</small>
           </div>
         </div>
-        <DeckPanel
-          onOpenSource={() => {
-            closePreview()
-            setArtifactTab('sources')
-            setActiveSource('solution')
-            setToast('已定位到本页引用来源')
-          }}
-        />
+        <DeckPanel onOpenSource={handleOpenSource} />
       </div>
     </aside>
   )

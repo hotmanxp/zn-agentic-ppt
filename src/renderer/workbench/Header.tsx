@@ -20,7 +20,11 @@ export function Header() {
   const isIdle = phase === 'idle'
   const showOrb = phase === 'generating' || phase === 'complete'
   const idx = flowIndex(phase)
-  const title = isIdle || !client.trim() ? '新建演示任务' : client.trim()
+  // For non-idle phases, prefer the brief's client when set, falling back
+  // to the scenario name. Idle shows the generic placeholder.
+  const title = isIdle
+    ? '新建演示任务'
+    : client.trim() || scenarioName
 
   return (
     <header className="workspace-header">

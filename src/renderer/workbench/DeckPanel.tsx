@@ -11,16 +11,17 @@ export function DeckPanel({
   onOpenSource: () => void
 }) {
   const slides = usePptGenerationStore((s) => s.slides)
+  const outlineDraft = useWorkbenchStore((s) => s.outlineDraft)
   const selected = useWorkbenchStore((s) => s.selectedSlide)
   const setSelectedSlide = useWorkbenchStore((s) => s.setSelectedSlide)
   const activeProjectId = useWorkbenchStore((s) => s.activeProjectId)
   const setToast = useWorkbenchStore((s) => s.setToast)
   const { message, modal } = AntdApp.useApp()
 
-  const ordered = Object.values(slides).sort((a, b) => {
-    if (a.layout && b.layout) return a.layout - b.layout
-    return String(a.id).localeCompare(String(b.id))
-  })
+  // Order slides by outline (not by layout) so prev/next follows page order.
+  const ordered = outlineDraft.length > 0
+    ? outlineDraft.map((it) => slides[it.id]).filter((s): s is NonNullable<typeof s> => Boolean(s))
+    : Object.values(slides)
   const safeIdx = Math.min(Math.max(0, selected), Math.max(0, ordered.length - 1))
   const current = ordered[safeIdx] ?? ordered[0]
 

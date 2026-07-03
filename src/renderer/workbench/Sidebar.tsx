@@ -70,7 +70,20 @@ export function Sidebar({ onSettings, onNotify }: SidebarProps) {
         </button>
       </div>
 
-      <button className="new-task-button" aria-label="新建演示任务" onClick={reset}>
+      <button
+        className="new-task-button"
+        aria-label="新建演示任务"
+        onClick={async () => {
+          try {
+            const m = await api.project.create('新演示任务')
+            await loadProjects()
+            await openProject(m.id)
+            useWorkbenchStore.setState({ phase: 'clarify' })
+          } catch (e) {
+            message.error(`创建失败：${e instanceof Error ? e.message : String(e)}`)
+          }
+        }}
+      >
         <Plus size={17} weight="bold" />
         {!collapsed && <span>新建演示任务</span>}
       </button>
@@ -99,7 +112,7 @@ export function Sidebar({ onSettings, onNotify }: SidebarProps) {
               <div
                 className={`history-item ${p.id === activeProjectId ? 'is-active' : ''}`}
                 key={p.id}
-                onClick={() => openProject(p.id, null)}
+                onClick={() => void openProject(p.id)}
                 onContextMenu={(e) => handleContextMenu(e, p)}
                 title={p.title}
                 style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '9px 10px', borderRadius: 8 }}

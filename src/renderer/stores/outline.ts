@@ -29,8 +29,7 @@ export const useOutlineStore = create<OutlineStore>((set, get) => ({
     outline: { slides, generatedAt: generatedAt ?? Date.now() },
     loaded: true,
   }),
-  generate: async (id, topic, source, brief) => {
-    await api.stage.collectSave(id, topic, source, brief)
+  generate: async (id) => {
     const r = await api.stage.outlineGenerate(id)
     if (r.phase === 'done') {
       set({ outline: { slides: r.slides, generatedAt: Date.now() } })

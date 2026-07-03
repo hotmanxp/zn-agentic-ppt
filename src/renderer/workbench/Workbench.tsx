@@ -46,15 +46,15 @@ export function Workbench() {
   const pptGen = usePptGenerationStore((s) => s.phase)
   const pptGenTotal = usePptGenerationStore((s) => s.total)
   const pptGenCompleted = usePptGenerationStore((s) => s.completed)
-  const briefPhase = useBriefOptimizeStore((s) => s.phase)
   const loadProjects = useProjectStore((s) => s.load)
 
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   useEffect(() => { loadProjects() }, [loadProjects])
 
-  // Drive the mock "searching" tick locally.
-  const [searchProgress, setSearchProgress] = useState(0)
+  // Drive the mock "searching" tick via the workbench store so the
+  // conversation card can read the same progress value.
+  const setSearchProgress = useWorkbenchStore((s) => s.setSearchProgress)
   useEffect(() => {
     if (phase !== 'searching') {
       setSearchProgress(0)
@@ -67,7 +67,41 @@ export function Workbench() {
     const t4 = setTimeout(() => setSearchProgress(100), 2600)
     const t5 = setTimeout(() => setPhase('sources'), 3050)
     return () => [t1, t2, t3, t4, t5].forEach(clearTimeout)
-  }, [phase, setPhase])
+  }, [phase, setPhase, setSearchProgress])
+
+  // Coordinator: when brief.optimize finishes, parse the JSON markdown
+  // back into brief fields and persist via collectSave.
+  const briefPhase = useBriefOptimizeStore((s) => s.phase)
+  const lastBrief = useBriefOptimizeStore((s) => s.lastBrief)
+  useEffect(() => {
+    if (briefPhase !== 'done' || !lastBrief) return
+    const id = activeProjectId
+    if (!id) {
+      useBriefOptimizeStore.getState().reset()
+      return
+    }
+    try {
+      const parsed = JSON.parse(lastBrief.markdown)
+      if (parsed && typeof parsed === 'object') {
+        const b = parsed.brief ?? parsed
+        if (b.client || b.audience || b.goal || b.duration || b.pages) {
+          const patch: Record<string, string> = {}
+          for (const k of ['client', 'audience', 'goal', 'duration', 'pages', 'template'] as const) {
+            if (typeof b[k] === 'string') patch[k] = b[k]
+          }
+          useWorkbenchStore.setState((s) => ({ brief: { ...s.brief, ...patch } }))
+        }
+      }
+      const newBrief = useWorkbenchStore.getState().brief
+      const scenario = useWorkbenchStore.getState().scenario
+      const summary = `${scenario.name}：面向${newBrief.client}的${newBrief.audience}，生成一份${newBrief.duration}、${newBrief.pages}的演示材料。`
+      void api.stage.collectSave(id, summary, '', { markdown: lastBrief.markdown })
+      setToast('项目信息已自动填充')
+    } catch (e) {
+      setToast(`解析失败：${e instanceof Error ? e.message : String(e)}`)
+    }
+    useBriefOptimizeStore.getState().reset()
+  }, [briefPhase, lastBrief, activeProjectId, setToast])
 
   // Derive phase from source-of-truth stores.
   useEffect(() => {
@@ -76,19 +110,24 @@ export function Workbench() {
     }
     if (phase === 'generating' && pptGen === 'done') {
       // Record completion card (one entry per run).
-      useWorkbenchStore.setState((s) => ({
-        deckVersions: [
-          ...s.deckVersions,
-          {
-            id: `run-${Date.now()}`,
-            revision: s.revisions[s.revisions.length - 1]?.text,
-            revisionId: s.revisions[s.revisions.length - 1]?.id,
-            pageCount: pptGenTotal || 1,
-            sourceCount: s.selectedSources.length,
-            createdAt: Date.now(),
-          },
-        ],
-      }))
+      useWorkbenchStore.setState((s) => {
+        const lastRevision = s.revisions[s.revisions.length - 1]
+        const isThisRevision = s.pendingRevisionId && lastRevision?.id === s.pendingRevisionId
+        return {
+          deckVersions: [
+            ...s.deckVersions,
+            {
+              id: `run-${Date.now()}`,
+              revision: isThisRevision ? lastRevision?.text : undefined,
+              revisionId: isThisRevision ? lastRevision?.id : undefined,
+              pageCount: pptGenTotal || 1,
+              sourceCount: s.selectedSources.length,
+              createdAt: Date.now(),
+            },
+          ],
+          pendingRevisionId: isThisRevision ? null : s.pendingRevisionId,
+        }
+      })
       setPhase('complete')
     }
     if (phase === 'generating' && pptGen === 'cancelled') setPhase('outline')
@@ -100,7 +139,7 @@ export function Workbench() {
     const topic = sc.name
     const project = await api.project.create(topic)
     await loadProjects()
-    openProject(project.id, null)
+    await openProject(project.id)
     useWorkbenchStore.setState({ phase: 'clarify', scenario: sc })
   }
 
@@ -115,15 +154,12 @@ export function Workbench() {
 
   const sidebarWidth = useWorkbenchStore((s) => s.sidebarCollapsed) ? 72 : 238
 
-  const layoutStyle = deckPreviewOpen ? (
-    (() => {
-      const viewportWidth = typeof window === 'undefined' ? 1366 : window.innerWidth
-      const available = Math.max(1, viewportWidth - sidebarWidth - 8)
-      const previewWidth = Math.round(available * deckPreviewRatio / 100)
-      const leftWidth = available - previewWidth
-      return ({ '--left-width': `${leftWidth}px`, '--preview-width': `${previewWidth}px` } as React.CSSProperties)
-    })()
-  ) : undefined
+  const layoutStyle = deckPreviewOpen
+    ? ({
+        '--left-width': '40vw',
+        '--preview-width': '60vw',
+      } as React.CSSProperties)
+    : undefined
 
   return (
     <div className={`agent-app ${layoutClass}`} style={layoutStyle}>
@@ -149,7 +185,7 @@ export function Workbench() {
           </div>
         ) : phase === 'clarify' ? (
           <ClarificationComposer scenario={scenario} />
-        ) : phase === 'searching' && searchProgress < 100 ? (
+        ) : phase === 'searching' ? (
           <div className="composer-wrap composer-wrap-busy">
             <div className="composer-busy-state">
               <span>正在查找资料，完成后会请你确认引用资料</span>

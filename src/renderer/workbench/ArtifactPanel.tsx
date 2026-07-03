@@ -13,6 +13,20 @@ export function ArtifactPanel() {
   const setActiveSource = useWorkbenchStore((s) => s.setActiveSource)
   const setToast = useWorkbenchStore((s) => s.setToast)
   const outlineItems = useWorkbenchStore((s) => s.outlineDraft)
+  const selectedSlideIdx = useWorkbenchStore((s) => s.selectedSlide)
+
+  const resolveSourceForCurrentSlide = () => {
+    const item = outlineItems[selectedSlideIdx]
+    const src = (item?.source ?? '').split(/[,，]/).map((s) => s.trim()).filter(Boolean)[0]
+    return src || 'solution'
+  }
+
+  const handleOpenSourceForSlide = () => {
+    const id = resolveSourceForCurrentSlide()
+    setArtifactTab('sources')
+    setActiveSource(id)
+    setToast(`已定位到引用来源：${id}`)
+  }
 
   const tabs: Array<{ id: 'deck' | 'sources' | 'task'; label: string }> = [
     { id: 'deck', label: '演示稿' },
@@ -65,13 +79,7 @@ export function ArtifactPanel() {
       )}
       {artifactTab === 'deck' && phase === 'generating' && <OutlinePanelFromStore />}
       {artifactTab === 'deck' && phase === 'complete' && (
-        <DeckPanel
-          onOpenSource={() => {
-            setArtifactTab('sources')
-            setActiveSource('solution')
-            setToast('已定位到本页引用来源')
-          }}
-        />
+        <DeckPanel onOpenSource={handleOpenSourceForSlide} />
       )}
     </aside>
   )

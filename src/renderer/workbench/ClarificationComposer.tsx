@@ -1,5 +1,7 @@
 import { ArrowRight, FileText, Sparkle, Target, Timer, UsersThree } from '@phosphor-icons/react'
 import { App as AntdApp } from 'antd'
+import { api } from '../lib/api.js'
+import { useProjectStore } from '../stores/project.js'
 import { useWorkbenchStore } from '../stores/workbench.js'
 import { useBriefOptimizeStore } from '../stores/briefOptimize.js'
 import { getBriefFieldCopy } from './briefCopy.js'
@@ -26,21 +28,29 @@ export function ClarificationComposer({ scenario }: { scenario: Scenario }) {
     brief.duration.trim() &&
     brief.pages.trim()
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!ready) return
-    const id = useWorkbenchStore.getState().activeProjectId
+    const state = useWorkbenchStore.getState()
+    let id = state.activeProjectId
     if (!id) {
-      useWorkbenchStore.getState().setPhase('sources')
-      return
+      const title = brief.client.trim() || '新演示任务'
+      const m = await api.project.create(title)
+      await useProjectStore.getState().load()
+      await state.openProject(m.id)
+      id = m.id
     }
-    void useWorkbenchStore.getState().confirmBrief(id)
+    void state.confirmBrief(id)
   }
 
   const handleOptimize = async () => {
-    const id = useWorkbenchStore.getState().activeProjectId
+    const state = useWorkbenchStore.getState()
+    let id = state.activeProjectId
     if (!id) {
-      message.warning('请先创建一个项目后再优化项目信息')
-      return
+      const title = brief.client.trim() || '新演示任务'
+      const m = await api.project.create(title)
+      await useProjectStore.getState().load()
+      await state.openProject(m.id)
+      id = m.id
     }
     try {
       await startBriefOptimize(id, null)
