@@ -14,8 +14,8 @@ export const outlinePrompt: PromptSpec = {
 {{briefMarkdown}}
 
 【全局风格】(整套 PPT 保持视觉一致 — 每张幻灯片都会遵循)
-- 主色 #FF6600(蓝)
-- 强调色 #FF8C42(紫)
+- 主色 #FF8839(蓝)
+- 强调色 #FFB070(紫)
 - 暖色装饰 #f59e0b(橙,仅 cover/closing 用)
 - 字体 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif
 - 尺寸 16:9
@@ -39,8 +39,8 @@ export const outlinePrompt: PromptSpec = {
 输出 JSON 格式(不要解释,直接输出):
 {
   "globalStyle": {
-    "primaryColor": "#FF6600",
-    "accentColor": "#FF8C42",
+    "primaryColor": "#FF8839",
+    "accentColor": "#FFB070",
     "fontFamily": "-apple-system, \\"PingFang SC\\", \\"Microsoft YaHei\\", sans-serif",
     "aspectRatio": "16/9"
   },

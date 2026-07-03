@@ -26,6 +26,7 @@
     "@anthropic-ai/sdk": "0.94.0",
     "@aws-sdk/client-bedrock-runtime": "^3.1072.0",
     "@modelcontextprotocol/sdk": "1.29.0",
+    "@phosphor-icons/react": "^2.1.10",
     "antd": "^5.20.0",
     "google-auth-library": "9.15.1",
     "react": "^18.3.0",
