@@ -26,7 +26,7 @@ export function SettingsModal({
       footer={null}
       width={960}
       title="设置"
-      destroyOnClose
+      destroyOnHidden
       styles={{ body: { padding: 0 } }}
     >
       <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', minHeight: 540 }}>
