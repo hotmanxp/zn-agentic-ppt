@@ -32,8 +32,10 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid rgba(255, 136,
 .agent-app {
   display: grid;
   grid-template-columns: 238px minmax(480px, 1fr) 460px;
-  width: 100%;
-  height: 100%;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
   background: var(--wash);
   transition: grid-template-columns 220ms ease;
   overflow: hidden;
@@ -188,7 +190,7 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid rgba(255, 136,
   display: grid;
   min-width: 0;
   min-height: 0;
-  height: 100%;
+  height: 100vh;
   grid-template-rows: 64px minmax(0, 1fr) auto;
   background: #fbfbfa;
   overflow: hidden;
@@ -280,8 +282,8 @@ body.is-resizing-preview { cursor: col-resize; user-select: none; }
   width: min(920px, calc(100% - 48px));
   min-height: 100%;
   margin: 0 auto;
-  padding: 10vh 0 34px;
-  align-items: center;
+  padding: 8vh 0 34px;
+  align-items: flex-start;
   flex-direction: column;
   text-align: center;
 }
