@@ -37,6 +37,11 @@ export function ensureLsToolRegistered(): void {
     isReadOnly: () => true,
     isConcurrencySafe: () => true,
     isDestructive: () => false,
+    // vendor SDK reads `tool.prompt({...})` to render the tool description into
+    // the model prompt (sdk.mjs:278458). Without this it crashes with
+    // "tool2.prompt is not a function" and the renderer goes blank.
+    prompt: async () =>
+      'List the entries of a directory. Provide an absolute `path`; returns one line per entry with a `d` (directory) or `-` (file) prefix.',
     checkPermissions: (input: unknown) =>
       Promise.resolve({ behavior: 'allow' as const, updatedInput: input }),
     async call({ path }: { path: string }) {
