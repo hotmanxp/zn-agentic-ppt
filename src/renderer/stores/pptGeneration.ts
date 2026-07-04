@@ -20,6 +20,10 @@ interface PptGenerationState {
   /** Per-project slide state, keyed by slide id. */
   slides: Record<string, PptSlide>
   phase: 'idle' | 'running' | 'done' | 'cancelled' | 'error'
+  /** Last start() error, surfaced to UI so the user can see *why* generation
+   * failed (memory: replace-not-augment — prefer the real error over the
+   * "未知错误" fallback in the legacy SlidePreview). */
+  lastError: string | null
   completed: number
   failed: number
   total: number
@@ -59,6 +63,7 @@ export const usePptGenerationStore = create<PptGenerationState>((set, get) => ({
   projectId: null,
   slides: {},
   phase: 'idle',
+  lastError: null,
   completed: 0,
   failed: 0,
   total: 0,
@@ -74,14 +79,18 @@ export const usePptGenerationStore = create<PptGenerationState>((set, get) => ({
   },
 
   start: async (projectId) => {
-    set({ phase: 'running', projectId })
+    set({ phase: 'running', projectId, lastError: null })
     try {
       const r = await api.stage.htmlGenerate(projectId)
-      if (r.phase === 'cancelled') set({ phase: 'cancelled' })
-      else if (r.phase === 'error') set({ phase: 'error' })
+      if (r.phase === 'cancelled') set({ phase: 'cancelled', lastError: 'cancelled' })
+      else if (r.phase === 'error') set({ phase: 'error', lastError: 'generation reported error' })
       else set({ phase: 'done', completed: r.completed, failed: r.failed, total: r.total })
-    } catch (e: any) {
-      set({ phase: 'error' })
+    } catch (e) {
+      // Persist the real error so UI can show it instead of "未知错误"
+      // fallback (memory: preserve-raw-llm-text-in-ui-alongside-parsed-fields).
+      const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e)
+      console.error('[ppt] htmlGenerate failed:', msg)
+      set({ phase: 'error', lastError: msg })
     }
   },
 
@@ -142,5 +151,5 @@ export const usePptGenerationStore = create<PptGenerationState>((set, get) => ({
     })
   },
 
-  reset: () => set({ projectId: null, slides: {}, phase: 'idle', completed: 0, failed: 0, total: 0 }),
+  reset: () => set({ projectId: null, slides: {}, phase: 'idle', completed: 0, failed: 0, total: 0, lastError: null }),
 }))

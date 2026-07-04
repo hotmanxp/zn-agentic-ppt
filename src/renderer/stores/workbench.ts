@@ -258,12 +258,17 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     set({ phase: 'buildingOutline' })
     const r = await api.stage.outlineGenerate(id)
     const slides = r.phase === 'done' ? r.slides : []
+    // outlineGenerate returns synchronously (memory:
+    // workbench-approvesources-sync-vs-stream-watcher-deadlock). Advance
+    // phase directly to 'outline' instead of waiting on a stageStream
+    // event that will never arrive. The Workbench watcher at ~108 still
+    // works for streaming-based flows (e.g. the legacy stage:outline-stream
+    // path) but doesn't apply here.
     set({
       outlineDraft: normalizeOutline(slides),
       artifactTab: 'deck',
+      phase: slides.length > 0 ? 'outline' : 'buildingOutline',
     })
-    // Phase transition to 'outline' is driven by the Workbench watcher
-    // once stageStream reports 'done'.
     void useOutlineStore.getState().setOutline(slides, Date.now())
   },
 
