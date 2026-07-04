@@ -1,7 +1,13 @@
 // @ts-ignore vendor bundle — no types available
 import { query as sdkQuery } from '../../../vendor/sdk.mjs'
 import { buildSystemPrompt } from './prompts.js'
+import { ensureLsToolRegistered } from './lsTool.js'
 import type { Settings } from '../../shared/types.js'
+
+// Register LS once at module load. Silences vendor SDK's
+// "agent references unknown tool 'LS'" warning emitted by injectAgents when
+// plugins (e.g. feature-dev) declare `LS` in their agent's tools list.
+ensureLsToolRegistered()
 
 export interface RunnerOptions {
   cwd: string
