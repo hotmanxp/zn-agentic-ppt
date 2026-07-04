@@ -269,6 +269,12 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
 
   approveOutline: async (id) => {
     usePptGenerationStore.getState().reset()
+    // Seed total/slide skeleton BEFORE start() so GenerationCard has a
+    // non-zero denominator from the first frame. Without this the user
+    // stares at "0%" for the full generation (no slide events are
+    // dispatched until the orchestrator finishes its first slide).
+    const seedSlides = get().outlineDraft.map((s) => ({ id: s.id, title: s.title }))
+    usePptGenerationStore.getState().initialize(id, seedSlides)
     set({
       phase: 'generating',
       pendingRevisionId: null,
@@ -281,6 +287,9 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
 
   startRevision: async (id, text) => {
     const revisionId = `revision-${Date.now()}`
+    // Re-seed in case the outline was edited since the last run.
+    const seedSlides = get().outlineDraft.map((s) => ({ id: s.id, title: s.title }))
+    usePptGenerationStore.getState().initialize(id, seedSlides)
     set((s) => ({
       revisions: [...s.revisions, { id: revisionId, text }],
       prompt: '',

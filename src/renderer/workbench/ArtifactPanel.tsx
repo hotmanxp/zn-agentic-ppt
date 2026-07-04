@@ -4,6 +4,7 @@ import { TaskPanel } from './TaskPanel.js'
 import { SourcesPanel } from './SourcesPanel.js'
 import { OutlinePanelFromStore } from './OutlinePanel.js'
 import { DeckPanel } from './DeckPanel.js'
+import { GenerationProgressPanel } from './GenerationProgressPanel.js'
 
 export function ArtifactPanel() {
   const phase = useWorkbenchStore((s) => s.phase)
@@ -14,6 +15,7 @@ export function ArtifactPanel() {
   const setToast = useWorkbenchStore((s) => s.setToast)
   const outlineItems = useWorkbenchStore((s) => s.outlineDraft)
   const selectedSlideIdx = useWorkbenchStore((s) => s.selectedSlide)
+  const brief = useWorkbenchStore((s) => s.brief)
 
   const resolveSourceForCurrentSlide = () => {
     const item = outlineItems[selectedSlideIdx]
@@ -77,7 +79,9 @@ export function ArtifactPanel() {
       {artifactTab === 'deck' && (phase === 'buildingOutline' || phase === 'outline') && (
         <OutlinePanelFromStore />
       )}
-      {artifactTab === 'deck' && phase === 'generating' && <OutlinePanelFromStore />}
+      {artifactTab === 'deck' && phase === 'generating' && (
+        <GenerationProgressPanel brief={brief} />
+      )}
       {artifactTab === 'deck' && phase === 'complete' && (
         <DeckPanel onOpenSource={handleOpenSourceForSlide} />
       )}
