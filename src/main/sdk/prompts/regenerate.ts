@@ -1,9 +1,9 @@
-import type { PromptSpec } from './types.js'
+import type { PromptSpec } from "./types.js";
 
 export const regeneratePrompt: PromptSpec = {
-  id: 'REGENERATE_PROMPT',
-  title: '单页重新生成',
-  description: '根据整页 outline + 当前 HTML 风格，重新生成单页 HTML（layout 强制对齐轮换）。',
+  id: "REGENERATE_PROMPT",
+  title: "单页重新生成",
+  description: "根据整页 outline + 当前 HTML 风格，重新生成单页 HTML（layout 强制对齐轮换）。",
   defaultTemplate: `你是 PPT 单页编辑 + 视觉设计师。用户要重新生成其中一页。
 
 【硬性要求】这一页必须有完整、专业的视觉布局与样式 —— 不是裸 HTML，不是纯白底黑字列表。
@@ -41,11 +41,20 @@ export const regeneratePrompt: PromptSpec = {
 
 只输出 <section data-id="{{slideId}}">...</section>。`,
   variables: [
-    { name: 'target', description: '目标页 outline（含 id/title/bullets/notes）', type: 'json' },
-    { name: 'others', description: '其他页标题数组（用于连贯性）', type: 'json' },
-    { name: 'currentSectionHtml', description: '当前页现有 HTML 字符串', type: 'string' },
-    { name: 'layout', description: '本张幻灯片 layout 编号 (1-5)，用于「layoutHint」拼接', type: 'string', example: '2' },
-    { name: 'slideId', description: '本张幻灯片 id（用于 Read/Write 路径）', type: 'string' },
-    { name: 'layoutHint', description: '预渲染的 layout 提示文本（来自调用方，可为空）', type: 'string' },
+    { name: "target", description: "目标页 outline（含 id/title/bullets/notes）", type: "json" },
+    { name: "others", description: "其他页标题数组（用于连贯性）", type: "json" },
+    { name: "currentSectionHtml", description: "当前页现有 HTML 字符串", type: "string" },
+    {
+      name: "layout",
+      description: "本张幻灯片 layout 编号 (1-5)，用于「layoutHint」拼接",
+      type: "string",
+      example: "2",
+    },
+    { name: "slideId", description: "本张幻灯片 id（用于 Read/Write 路径）", type: "string" },
+    {
+      name: "layoutHint",
+      description: "预渲染的 layout 提示文本（来自调用方，可为空）",
+      type: "string",
+    },
   ],
-}
+};

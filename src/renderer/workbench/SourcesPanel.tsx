@@ -1,13 +1,13 @@
-import { Check, CheckCircle } from '@phosphor-icons/react'
-import { useWorkbenchStore } from '../stores/workbench.js'
-import { KNOWN_SOURCES } from './data/sources.js'
-import { SourceIcon } from './primitives/SourceIcon.js'
+import { Check, CheckCircle } from "@phosphor-icons/react";
+import { useWorkbenchStore } from "../stores/workbench.js";
+import { KNOWN_SOURCES } from "./data/sources.js";
+import { SourceIcon } from "./primitives/SourceIcon.js";
 
 export function SourcesPanel() {
-  const uploaded = useWorkbenchStore((s) => s.uploadedSources)
-  const selected = useWorkbenchStore((s) => s.selectedSources)
-  const toggle = useWorkbenchStore((s) => s.toggleSource)
-  const sources = [...KNOWN_SOURCES, ...uploaded]
+  const uploaded = useWorkbenchStore((s) => s.uploadedSources);
+  const selected = useWorkbenchStore((s) => s.selectedSources);
+  const toggle = useWorkbenchStore((s) => s.toggleSource);
+  const sources = [...KNOWN_SOURCES, ...uploaded];
   return (
     <div className="artifact-panel-body sources-panel">
       <div className="panel-section-title">
@@ -26,25 +26,31 @@ export function SourcesPanel() {
       </div>
       <div className="source-panel-list">
         {sources.map((s) => {
-          const isSelected = selected.includes(s.id)
+          const isSelected = selected.includes(s.id);
           return (
             <button
-              className={isSelected ? 'is-selected' : ''}
+              className={isSelected ? "is-selected" : ""}
               key={s.id}
               onClick={() => toggle(s.id)}
               aria-pressed={isSelected}
             >
-              <span className="source-file-icon"><SourceIcon type={s.type} /></span>
+              <span className="source-file-icon">
+                <SourceIcon type={s.type} />
+              </span>
               <span>
                 <b>{s.title}</b>
-                <small>{s.library} · {s.updated}</small>
+                <small>
+                  {s.library} · {s.updated}
+                </small>
                 <em>{s.used}</em>
               </span>
-              <span className="source-check">{isSelected && <Check size={14} weight="bold" />}</span>
+              <span className="source-check">
+                {isSelected && <Check size={14} weight="bold" />}
+              </span>
             </button>
-          )
+          );
         })}
       </div>
     </div>
-  )
+  );
 }

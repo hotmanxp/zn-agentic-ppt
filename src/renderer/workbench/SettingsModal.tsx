@@ -1,23 +1,23 @@
-import { useEffect, useState } from 'react'
-import { App as AntdApp, Button, Form, Input, Modal, Select } from 'antd'
-import { useSettingsStore } from '../stores/settings.js'
-import { PromptSettings } from '../components/PromptSettings.js'
+import { App as AntdApp, Button, Form, Input, Modal, Select } from "antd";
+import { useEffect, useState } from "react";
+import { PromptSettings } from "../components/PromptSettings.js";
+import { useSettingsStore } from "../stores/settings.js";
 
 const TABS = [
-  { key: 'llm', label: 'LLM 服务' },
-  { key: 'prompts', label: '提示词' },
-] as const
+  { key: "llm", label: "LLM 服务" },
+  { key: "prompts", label: "提示词" },
+] as const;
 
-type TabKey = (typeof TABS)[number]['key']
+type TabKey = (typeof TABS)[number]["key"];
 
 export function SettingsModal({
   open,
   onClose,
 }: {
-  open: boolean
-  onClose: () => void
+  open: boolean;
+  onClose: () => void;
 }) {
-  const [tab, setTab] = useState<TabKey>('llm')
+  const [tab, setTab] = useState<TabKey>("llm");
 
   return (
     <Modal
@@ -29,20 +29,22 @@ export function SettingsModal({
       destroyOnHidden
       styles={{ body: { padding: 0 } }}
     >
-      <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', minHeight: 540 }}>
-        <div style={{ background: '#f9fafb', borderRight: '1px solid #e5e7eb', padding: '16px 8px' }}>
+      <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", minHeight: 540 }}>
+        <div
+          style={{ background: "#f9fafb", borderRight: "1px solid #e5e7eb", padding: "16px 8px" }}
+        >
           {TABS.map((t) => (
             <div
               key={t.key}
               onClick={() => setTab(t.key)}
               style={{
-                padding: '8px 12px',
-                color: tab === t.key ? '#FF8839' : '#374151',
-                background: tab === t.key ? '#fef0e4' : 'transparent',
+                padding: "8px 12px",
+                color: tab === t.key ? "#FF8839" : "#374151",
+                background: tab === t.key ? "#fef0e4" : "transparent",
                 borderRadius: 6,
                 fontWeight: tab === t.key ? 500 : 400,
                 fontSize: 14,
-                cursor: 'pointer',
+                cursor: "pointer",
                 marginBottom: 4,
               }}
             >
@@ -50,31 +52,39 @@ export function SettingsModal({
             </div>
           ))}
         </div>
-        <div style={{ padding: '24px 32px', maxHeight: 540, overflowY: 'auto' }}>
-          {tab === 'llm' ? <LLMForm /> : <PromptSettings />}
+        <div style={{ padding: "24px 32px", maxHeight: 540, overflowY: "auto" }}>
+          {tab === "llm" ? <LLMForm /> : <PromptSettings />}
         </div>
       </div>
     </Modal>
-  )
+  );
 }
 
 function LLMForm() {
-  const { settings, load, save } = useSettingsStore()
-  const [testResult, setTestResult] = useState<{ ok: boolean; models?: string[]; error?: string } | null>(null)
-  const [form, setForm] = useState(settings)
-  const { message } = AntdApp.useApp()
+  const { settings, load, save } = useSettingsStore();
+  const [testResult, setTestResult] = useState<{
+    ok: boolean;
+    models?: string[];
+    error?: string;
+  } | null>(null);
+  const [form, setForm] = useState(settings);
+  const { message } = AntdApp.useApp();
 
-  useEffect(() => { load() }, [load])
-  useEffect(() => { setForm(settings) }, [settings])
-  if (!form) return <div style={{ padding: 24 }}>加载中...</div>
+  useEffect(() => {
+    load();
+  }, [load]);
+  useEffect(() => {
+    setForm(settings);
+  }, [settings]);
+  if (!form) return <div style={{ padding: 24 }}>加载中...</div>;
 
   const update = (patch: Partial<typeof form.llm>) =>
-    setForm((s) => s ? { ...s, llm: { ...s.llm, ...patch } } : s)
+    setForm((s) => (s ? { ...s, llm: { ...s.llm, ...patch } } : s));
 
   return (
     <>
-      <h2 style={{ margin: '0 0 4px' }}>LLM 服务</h2>
-      <p style={{ color: '#6b7280', margin: '0 0 24px', fontSize: 14 }}>
+      <h2 style={{ margin: "0 0 4px" }}>LLM 服务</h2>
+      <p style={{ color: "#6b7280", margin: "0 0 24px", fontSize: 14 }}>
         配置用于生成 PPT 的 LLM 服务。设置存在本地，不会发送到外部。
       </p>
       <Form layout="vertical">
@@ -83,9 +93,9 @@ function LLMForm() {
             value={form.llm.provider}
             onChange={(v) => update({ provider: v })}
             options={[
-              { value: 'anthropic', label: 'Anthropic 兼容（默认）' },
-              { value: 'openai', label: 'OpenAI 兼容' },
-              { value: 'custom', label: '自定义' },
+              { value: "anthropic", label: "Anthropic 兼容（默认）" },
+              { value: "openai", label: "OpenAI 兼容" },
+              { value: "custom", label: "自定义" },
             ]}
           />
         </Form.Item>
@@ -93,33 +103,33 @@ function LLMForm() {
           <Input
             value={form.llm.baseUrl}
             onChange={(e) => update({ baseUrl: e.target.value })}
-            style={{ fontFamily: 'monospace' }}
+            style={{ fontFamily: "monospace" }}
           />
         </Form.Item>
         <Form.Item label="API Key" extra="存储于本地，明文。后续版本将加密。">
           <Input.Password
             value={form.llm.apiKey}
             onChange={(e) => update({ apiKey: e.target.value })}
-            style={{ fontFamily: 'monospace' }}
+            style={{ fontFamily: "monospace" }}
           />
         </Form.Item>
         <Form.Item label="模型" extra="留空使用服务默认模型">
           <Input
             value={form.llm.model}
             onChange={(e) => update({ model: e.target.value })}
-            style={{ fontFamily: 'monospace' }}
+            style={{ fontFamily: "monospace" }}
             addonAfter={
               <Button
                 size="small"
                 type="link"
                 onClick={async () => {
                   try {
-                    const r = await window.api.settings.testConnection()
-                    setTestResult(r)
-                    if (r.ok) message.success(`连接成功，${r.models?.length ?? 0} 个模型`)
-                    else message.error(r.error ?? '连接失败')
+                    const r = await window.api.settings.testConnection();
+                    setTestResult(r);
+                    if (r.ok) message.success(`连接成功，${r.models?.length ?? 0} 个模型`);
+                    else message.error(r.error ?? "连接失败");
                   } catch (e) {
-                    message.error(String(e))
+                    message.error(String(e));
                   }
                 }}
               >
@@ -132,24 +142,24 @@ function LLMForm() {
           <div
             style={{
               padding: 12,
-              background: testResult.ok ? '#f0fdf4' : '#fef2f2',
+              background: testResult.ok ? "#f0fdf4" : "#fef2f2",
               borderRadius: 6,
               marginBottom: 16,
-              color: testResult.ok ? '#16a34a' : '#dc2626',
+              color: testResult.ok ? "#16a34a" : "#dc2626",
             }}
           >
             {testResult.ok
-              ? `✓ 连接成功${testResult.models ? `，模型：${testResult.models.join(', ')}` : ''}`
+              ? `✓ 连接成功${testResult.models ? `，模型：${testResult.models.join(", ")}` : ""}`
               : `✗ ${testResult.error}`}
           </div>
         )}
         <div
           style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
+            display: "flex",
+            justifyContent: "flex-end",
             gap: 8,
             paddingTop: 16,
-            borderTop: '1px solid #e5e7eb',
+            borderTop: "1px solid #e5e7eb",
           }}
         >
           <Button onClick={() => setForm(settings)}>恢复</Button>
@@ -157,8 +167,8 @@ function LLMForm() {
             type="primary"
             onClick={async () => {
               if (form) {
-                await save(form)
-                message.success('已保存')
+                await save(form);
+                message.success("已保存");
               }
             }}
           >
@@ -167,5 +177,5 @@ function LLMForm() {
         </div>
       </Form>
     </>
-  )
+  );
 }

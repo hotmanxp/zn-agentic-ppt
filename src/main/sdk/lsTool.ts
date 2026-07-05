@@ -7,31 +7,32 @@
 // every query() start, so registering LS here silences the warning. The tool
 // is real: it can list a directory the LLM names, matching Read/Write's
 // "feel" for the LLM when it does try to use it.
-import { readdirSync, statSync } from 'node:fs'
+import { readdirSync, statSync } from "node:fs";
 // @ts-ignore vendor bundle — no types available
-import { registerExternalTool } from '../../../vendor/sdk.mjs'
+import { registerExternalTool } from "../../../vendor/sdk.mjs";
 
-let registered = false
+let registered = false;
 
 /**
  * Register the LS system tool with the vendor SDK exactly once.
  * Idempotent across HMR/reload — subsequent calls are no-ops.
  */
 export function ensureLsToolRegistered(): void {
-  if (registered) return
-  registered = true
+  if (registered) return;
+  registered = true;
   registerExternalTool({
-    name: 'LS',
-    description: 'List the entries of a directory. Returns one line per entry with a `d` (directory) or `-` (file) prefix.',
+    name: "LS",
+    description:
+      "List the entries of a directory. Returns one line per entry with a `d` (directory) or `-` (file) prefix.",
     inputJSONSchema: {
-      type: 'object',
+      type: "object",
       properties: {
         path: {
-          type: 'string',
-          description: 'Absolute path of the directory to list.',
+          type: "string",
+          description: "Absolute path of the directory to list.",
         },
       },
-      required: ['path'],
+      required: ["path"],
     },
     isEnabled: () => true,
     isReadOnly: () => true,
@@ -41,25 +42,25 @@ export function ensureLsToolRegistered(): void {
     // the model prompt (sdk.mjs:278458). Without this it crashes with
     // "tool2.prompt is not a function" and the renderer goes blank.
     prompt: async () =>
-      'List the entries of a directory. Provide an absolute `path`; returns one line per entry with a `d` (directory) or `-` (file) prefix.',
+      "List the entries of a directory. Provide an absolute `path`; returns one line per entry with a `d` (directory) or `-` (file) prefix.",
     checkPermissions: (input: unknown) =>
-      Promise.resolve({ behavior: 'allow' as const, updatedInput: input }),
+      Promise.resolve({ behavior: "allow" as const, updatedInput: input }),
     async call({ path }: { path: string }) {
       try {
-        const stat = statSync(path)
+        const stat = statSync(path);
         if (!stat.isDirectory()) {
-          return [{ type: 'text' as const, text: `not a directory: ${path}` }]
+          return [{ type: "text" as const, text: `not a directory: ${path}` }];
         }
-        const entries = readdirSync(path, { withFileTypes: true })
+        const entries = readdirSync(path, { withFileTypes: true });
         const text = entries
-          .map((e) => `${e.isDirectory() ? 'd' : '-'} ${e.name}`)
+          .map((e) => `${e.isDirectory() ? "d" : "-"} ${e.name}`)
           .sort()
-          .join('\n')
-        return [{ type: 'text' as const, text: text || '(empty directory)' }]
+          .join("\n");
+        return [{ type: "text" as const, text: text || "(empty directory)" }];
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        return [{ type: 'text' as const, text: `LS error: ${msg}` }]
+        const msg = err instanceof Error ? err.message : String(err);
+        return [{ type: "text" as const, text: `LS error: ${msg}` }];
       }
     },
-  })
+  });
 }

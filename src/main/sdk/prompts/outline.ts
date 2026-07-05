@@ -1,9 +1,10 @@
-import type { PromptSpec } from './types.js'
+import type { PromptSpec } from "./types.js";
 
 export const outlinePrompt: PromptSpec = {
-  id: 'OUTLINE_PROMPT',
-  title: '大纲生成',
-  description: '基于项目 brief(markdown 文本)整理成 4-8 张幻灯片大纲,含 cover/closing 强制首尾与全局风格。',
+  id: "OUTLINE_PROMPT",
+  title: "大纲生成",
+  description:
+    "基于项目 brief(markdown 文本)整理成 4-8 张幻灯片大纲,含 cover/closing 强制首尾与全局风格。",
   defaultTemplate: `你是 PPT 大纲编辑 + 视觉策划。基于以下项目 brief(markdown 文本)整理成 4-8 张幻灯片大纲,每页包含:
 - title: 标题(≤ 20 字)
 - bullets: 要点数组(2-5 项,每项 ≤ 30 字)
@@ -53,6 +54,11 @@ export const outlinePrompt: PromptSpec = {
 }
 `,
   variables: [
-    { name: 'briefMarkdown', description: '项目 brief 完整 markdown 文本', type: 'string', example: '# AI 在教育中的应用\n\n## 演讲对象和场景\n中学老师\n...' },
+    {
+      name: "briefMarkdown",
+      description: "项目 brief 完整 markdown 文本",
+      type: "string",
+      example: "# AI 在教育中的应用\n\n## 演讲对象和场景\n中学老师\n...",
+    },
   ],
-}
+};

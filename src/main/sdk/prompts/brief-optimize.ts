@@ -1,9 +1,10 @@
-import type { PromptSpec } from './types.js'
+import type { PromptSpec } from "./types.js";
 
 export const briefOptimizePrompt: PromptSpec = {
-  id: 'BRIEF_OPTIMIZE_PROMPT',
-  title: '项目信息优化',
-  description: '把用户原始描述 + 现有结构化字段整理成完整的 5 字段 brief,允许用 AskUserQuestion 追问最多 2 轮。',
+  id: "BRIEF_OPTIMIZE_PROMPT",
+  title: "项目信息优化",
+  description:
+    "把用户原始描述 + 现有结构化字段整理成完整的 5 字段 brief,允许用 AskUserQuestion 追问最多 2 轮。",
   defaultTemplate: `你是 PPT 项目结构化助手。**当前任务范围严格限定为:问用户澄清问题(可选,最多 2 轮),最后输出 5 字段 brief 的 markdown 文本。**
 
 【最重要的规则:不要做任何其他事情】
@@ -65,7 +66,7 @@ source(用户原始描述): {{source}}
 深色科技、蓝色主调
 `,
   variables: [
-    { name: 'source', description: '用户原始描述', type: 'string' },
-    { name: 'hintJson', description: '现有结构化字段(JSON 字符串)', type: 'string' },
+    { name: "source", description: "用户原始描述", type: "string" },
+    { name: "hintJson", description: "现有结构化字段(JSON 字符串)", type: "string" },
   ],
-}
+};

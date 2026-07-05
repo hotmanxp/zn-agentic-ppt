@@ -1,13 +1,9 @@
+import { randomUUID } from "node:crypto";
 // @ts-ignore vendor bundle — no types available
 import { registerExternalTool } from "../../../../vendor/sdk.mjs";
-import { randomUUID } from "node:crypto";
-import { GenerationRunner } from "../runner.js";
+import type { AppError, ProjectBrief, Settings } from "../../../shared/types.js";
 import { renderPrompt } from "../prompts/index.js";
-import type {
-  Settings,
-  ProjectBrief,
-  AppError,
-} from "../../../shared/types.js";
+import { GenerationRunner } from "../runner.js";
 
 export interface AskUserRequest {
   qid: string;
@@ -255,7 +251,7 @@ export class BriefAgent {
       ? previousAnswer.cancelled
         ? `用户跳过了上轮提问。请基于已有信息直接输出最终 markdown 项目信息,不要再追问。`
         : `上轮你问了用户问题。用户回答: ${JSON.stringify(previousAnswer.value)}。请继续整理项目信息并输出最终 markdown,不要再追问。`
-      : "请开始整理项目信息。如果需要追问,**只输出一个 JSON object**:{\"questions\":[...]}。如果信息够用,直接输出最终 markdown 项目信息。";
+      : '请开始整理项目信息。如果需要追问,**只输出一个 JSON object**:{"questions":[...]}。如果信息够用,直接输出最终 markdown 项目信息。';
 
     return new Promise<{ text: string; sessionId?: string }>((resolve, reject) => {
       let settled = false;
@@ -290,8 +286,7 @@ export class BriefAgent {
         onEvent: () => {},
         onProgress: () => {},
         onDone: ({ html, sessionId }) => settle(() => resolve({ text: html, sessionId })),
-        onError: ({ error }) =>
-          settle(() => reject(new Error(error.message))),
+        onError: ({ error }) => settle(() => reject(new Error(error.message))),
       });
       void runner.run();
     });
@@ -311,8 +306,9 @@ export class BriefAgent {
  */
 export function parseAskUserBlock(text: string): { questions: AskUserRequest["questions"] } | null {
   // Strategy A: XML-wrapped `<briefaskuser>...</briefaskuser>` (any inner shape)
-  const m = text.match(/<briefaskuser>\s*([\s\S]*?)\s*<\/briefaskuser>/i)
-    ?? text.match(/<BriefAskUser>\s*([\s\S]*?)\s*<\/BriefAskUser>/i);
+  const m =
+    text.match(/<briefaskuser>\s*([\s\S]*?)\s*<\/briefaskuser>/i) ??
+    text.match(/<BriefAskUser>\s*([\s\S]*?)\s*<\/BriefAskUser>/i);
   if (m) {
     const inner = m[1].trim();
     if (inner) {
@@ -321,14 +317,18 @@ export function parseAskUserBlock(text: string): { questions: AskUserRequest["qu
         const parsed = JSON.parse(inner);
         if (Array.isArray(parsed)) return { questions: parsed };
         if (Array.isArray(parsed?.questions)) return { questions: parsed.questions };
-      } catch { /* not bare JSON — try XML sub-wrappers */ }
+      } catch {
+        /* not bare JSON — try XML sub-wrappers */
+      }
       // XML-wrapped `<questions>[...]</questions>`
       const qMatch = inner.match(/<questions>\s*([\s\S]*?)\s*<\/questions>/i);
       if (qMatch) {
         try {
           const arr = JSON.parse(qMatch[1]);
           if (Array.isArray(arr)) return { questions: arr };
-        } catch { /* fall through */ }
+        } catch {
+          /* fall through */
+        }
       }
       // XML-wrapped `<question>{...}</question>` × N
       const singleQs = [...inner.matchAll(/<question>\s*([\s\S]*?)\s*<\/question>/gi)];
@@ -337,7 +337,9 @@ export function parseAskUserBlock(text: string): { questions: AskUserRequest["qu
         for (const q of singleQs) {
           try {
             questions.push(JSON.parse(q[1]));
-          } catch { return null; }
+          } catch {
+            return null;
+          }
         }
         return { questions };
       }
@@ -366,7 +368,10 @@ export function parseAskUserBlock(text: string): { questions: AskUserRequest["qu
       else if (ch === "{") depth++;
       else if (ch === "}") {
         depth--;
-        if (depth === 0) { endIdx = i; break; }
+        if (depth === 0) {
+          endIdx = i;
+          break;
+        }
       }
     }
     if (endIdx > 0) {
@@ -374,7 +379,9 @@ export function parseAskUserBlock(text: string): { questions: AskUserRequest["qu
       try {
         const parsed = JSON.parse(candidate);
         if (Array.isArray(parsed?.questions)) return { questions: parsed.questions };
-      } catch { /* not valid JSON — fall through */ }
+      } catch {
+        /* not valid JSON — fall through */
+      }
     }
   }
 

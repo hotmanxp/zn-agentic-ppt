@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
-  const g = globalThis as any
-  g.window = g.window ?? {}
+  const g = globalThis as any;
+  g.window = g.window ?? {};
   g.window.api = {
     project: { get: vi.fn() },
     stage: {
@@ -15,22 +15,22 @@ vi.hoisted(() => {
       htmlGenerate: vi.fn(),
       styleSave: vi.fn(),
     },
-  }
-})
+  };
+});
 
-import { useOutlineStore } from '../../../../src/renderer/stores/outline.js'
+import { useOutlineStore } from "../../../../src/renderer/stores/outline.js";
 
-describe('useOutlineStore.applyDetail', () => {
+describe("useOutlineStore.applyDetail", () => {
   beforeEach(() => {
-    useOutlineStore.setState({ outline: null, style: null, loaded: false })
-  })
+    useOutlineStore.setState({ outline: null, style: null, loaded: false });
+  });
 
-  it('sets outline when called', () => {
+  it("sets outline when called", () => {
     useOutlineStore.getState().applyDetail({
-      slides: [{ id: 's1', title: 'T', bullets: ['a'] }],
+      slides: [{ id: "s1", title: "T", bullets: ["a"] }],
       generatedAt: 1700000000,
-    })
-    expect(useOutlineStore.getState().outline?.slides[0].id).toBe('s1')
-    expect(useOutlineStore.getState().loaded).toBe(true)
-  })
-})
+    });
+    expect(useOutlineStore.getState().outline?.slides[0].id).toBe("s1");
+    expect(useOutlineStore.getState().loaded).toBe(true);
+  });
+});

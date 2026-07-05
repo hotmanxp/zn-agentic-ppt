@@ -3,5 +3,5 @@ export function BrandMark() {
     <span className="brand-mark" aria-hidden="true">
       <img src="./assets/zhishu-logo.png" alt="" />
     </span>
-  )
+  );
 }

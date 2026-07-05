@@ -3,5 +3,5 @@
  * Clamped to the range [3, 60].
  */
 export function computePageCountEst(durationMinutes: number): number {
-  return Math.max(3, Math.min(60, Math.round(durationMinutes / 1.5)))
+  return Math.max(3, Math.min(60, Math.round(durationMinutes / 1.5)));
 }

@@ -1,5 +1,5 @@
-import { contextBridge, ipcRenderer } from 'electron'
-import { IPC } from '../shared/ipc-channels.js'
+import { contextBridge, ipcRenderer } from "electron";
+import { IPC } from "../shared/ipc-channels.js";
 
 const api = {
   project: {
@@ -19,7 +19,8 @@ const api = {
     testConnection: () => ipcRenderer.invoke(IPC.SETTINGS_TEST_CONNECTION),
     prompts: {
       get: (id: string) => ipcRenderer.invoke(IPC.SETTINGS_PROMPT_GET, { id }),
-      set: (id: string, template: string) => ipcRenderer.invoke(IPC.SETTINGS_PROMPT_SET, { id, template }),
+      set: (id: string, template: string) =>
+        ipcRenderer.invoke(IPC.SETTINGS_PROMPT_SET, { id, template }),
       reset: (id: string) => ipcRenderer.invoke(IPC.SETTINGS_PROMPT_RESET, { id }),
       list: () => ipcRenderer.invoke(IPC.SETTINGS_PROMPT_LIST),
       listSpecs: () => ipcRenderer.invoke(IPC.SETTINGS_PROMPT_LIST_SPECS),
@@ -39,10 +40,8 @@ const api = {
   stage: {
     collectSave: (id: string, topic: string, source: string, brief: any) =>
       ipcRenderer.invoke(IPC.STAGE_COLLECT_SAVE, { id, topic, source, brief }),
-    outlineGenerate: (id: string) =>
-      ipcRenderer.invoke(IPC.STAGE_OUTLINE_GENERATE, { id }),
-    outlineRead: (id: string) =>
-      ipcRenderer.invoke(IPC.STAGE_OUTLINE_READ, { id }),
+    outlineGenerate: (id: string) => ipcRenderer.invoke(IPC.STAGE_OUTLINE_GENERATE, { id }),
+    outlineRead: (id: string) => ipcRenderer.invoke(IPC.STAGE_OUTLINE_READ, { id }),
     outlineUpdate: (id: string, slideId: string, patch: any) =>
       ipcRenderer.invoke(IPC.STAGE_OUTLINE_UPDATE, { id, slideId, patch }),
     slideAdd: (id: string) => ipcRenderer.invoke(IPC.STAGE_SLIDE_ADD, { id }),
@@ -51,32 +50,34 @@ const api = {
     slideRegenerate: (id: string, slideId: string) =>
       ipcRenderer.invoke(IPC.STAGE_SLIDE_REGENERATE, { id, slideId }),
     htmlGenerate: (id: string) => ipcRenderer.invoke(IPC.STAGE_HTML_GENERATE, { id }),
-    styleSave: (id: string, style: any) =>
-      ipcRenderer.invoke(IPC.STAGE_STYLE_SAVE, { id, style }),
+    styleSave: (id: string, style: any) => ipcRenderer.invoke(IPC.STAGE_STYLE_SAVE, { id, style }),
     onSlideUpdated: (cb: (e: any) => void) => subscribe(IPC.HTML_SLIDE_UPDATED, cb),
     onOutlineStream: (cb: (e: any) => void) => subscribe(IPC.STAGE_OUTLINE_STREAM, cb),
     onSlideRegenStream: (cb: (e: any) => void) => subscribe(IPC.STAGE_SLIDE_REGENERATE_STREAM, cb),
     onHtmlSlideReady: (cb: (e: any) => void) => subscribe(IPC.STAGE_HTML_SLIDE_READY, cb),
     onHtmlGenerateDone: (cb: (e: any) => void) => subscribe(IPC.STAGE_HTML_GENERATE_DONE, cb),
     outlineCancel: (id: string) => ipcRenderer.invoke(IPC.STAGE_OUTLINE_CANCEL, { id }),
-    slideCancel: (id: string, slideId: string) => ipcRenderer.invoke(IPC.STAGE_SLIDE_CANCEL, { id, slideId }),
+    slideCancel: (id: string, slideId: string) =>
+      ipcRenderer.invoke(IPC.STAGE_SLIDE_CANCEL, { id, slideId }),
     htmlCancel: (id: string) => ipcRenderer.invoke(IPC.STAGE_HTML_CANCEL, { id }),
   },
   brief: {
-    optimize: (id: string, hint: any) => ipcRenderer.invoke(IPC.STAGE_BRIEF_OPTIMIZE_START, { id, hint }),
+    optimize: (id: string, hint: any) =>
+      ipcRenderer.invoke(IPC.STAGE_BRIEF_OPTIMIZE_START, { id, hint }),
     cancel: () => ipcRenderer.invoke(IPC.STAGE_BRIEF_OPTIMIZE_CANCEL),
-    answer: (qid: string, value: any) => ipcRenderer.invoke(IPC.STAGE_BRIEF_OPTIMIZE_ANSWER, { qid, value }),
+    answer: (qid: string, value: any) =>
+      ipcRenderer.invoke(IPC.STAGE_BRIEF_OPTIMIZE_ANSWER, { qid, value }),
     onAskUserQuestion: (cb: (e: any) => void) => subscribe(IPC.STAGE_ASK_USER_QUESTION, cb),
     onDone: (cb: (e: any) => void) => subscribe(IPC.STAGE_BRIEF_OPTIMIZE_DONE, cb),
     onError: (cb: (e: any) => void) => subscribe(IPC.STAGE_BRIEF_OPTIMIZE_ERROR, cb),
   },
-}
+};
 
 function subscribe(channel: string, cb: (e: any) => void): () => void {
-  const listener = (_: unknown, payload: any) => cb(payload)
-  ipcRenderer.on(channel, listener)
-  return () => ipcRenderer.removeListener(channel, listener)
+  const listener = (_: unknown, payload: any) => cb(payload);
+  ipcRenderer.on(channel, listener);
+  return () => ipcRenderer.removeListener(channel, listener);
 }
 
-contextBridge.exposeInMainWorld('api', api)
-export type Api = typeof api
+contextBridge.exposeInMainWorld("api", api);
+export type Api = typeof api;

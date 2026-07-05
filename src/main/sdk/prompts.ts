@@ -17,5 +17,5 @@ export function buildSystemPrompt(topic: string, outline: string): string {
 用户主题：${topic}
 
 用户大纲（Markdown）：
-${outline}`
+${outline}`;
 }

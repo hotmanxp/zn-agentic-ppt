@@ -38,11 +38,7 @@ export function extractFirstJsonValue<T = unknown>(buffer: string): T {
   throw new Error("No JSON value found in buffer");
 }
 
-function scanFor(
-  stripped: string,
-  opener: string,
-  closer: string,
-): unknown | undefined {
+function scanFor(stripped: string, opener: string, closer: string): unknown | undefined {
   let depth = 0;
   let start = -1;
   let inString = false;

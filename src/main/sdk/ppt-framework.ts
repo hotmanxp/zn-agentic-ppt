@@ -1,4 +1,4 @@
-import type { OutlineSlide } from '../../shared/types.js'
+import type { OutlineSlide } from "../../shared/types.js";
 
 /**
  * Generates the framework index.html for a multi-slide PPT.
@@ -9,10 +9,10 @@ import type { OutlineSlide } from '../../shared/types.js'
  * independently by the orchestrator and re-rendered in place.
  */
 export function generateFrameworkHtml(opts: {
-  topic: string
-  slides: (Pick<OutlineSlide, 'id' | 'title'> & { layout?: 1 | 2 | 3 | 4 | 5 })[]
+  topic: string;
+  slides: (Pick<OutlineSlide, "id" | "title"> & { layout?: 1 | 2 | 3 | 4 | 5 })[];
 }): string {
-  const manifest = opts.slides.map(s => ({ id: s.id, title: s.title, layout: s.layout ?? 1 }))
+  const manifest = opts.slides.map((s) => ({ id: s.id, title: s.title, layout: s.layout ?? 1 }));
   return `<!doctype html>
 <html lang="zh">
 <head>
@@ -170,12 +170,12 @@ export function generateFrameworkHtml(opts: {
   </script>
 </body>
 </html>
-`
+`;
 }
 
 /** Maps a slide's index (0-based) to one of 5 distinct layouts. */
 export function layoutForIndex(index: number): 1 | 2 | 3 | 4 | 5 {
-  return ((index % 5) + 1) as 1 | 2 | 3 | 4 | 5
+  return ((index % 5) + 1) as 1 | 2 | 3 | 4 | 5;
 }
 
 /**
@@ -185,7 +185,7 @@ export function layoutForIndex(index: number): 1 | 2 | 3 | 4 | 5 {
  * are rendered as antd Skeleton-style gray bars (pure CSS, no JS).
  */
 export function generateLayoutHtml(slide: OutlineSlide): string {
-  return `<section data-id="${slide.id}"></section>`
+  return `<section data-id="${slide.id}"></section>`;
 }
 
 export function generateLayoutStyles(): string {
@@ -209,19 +209,23 @@ export function generateLayoutStyles(): string {
       animation: skel-pulse 1.4s ease-in-out infinite;
     }
     @keyframes skel-pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-  `
+  `;
 }
 
 function escapeJson(s: unknown): string {
   // Avoid </script> in the manifest; escape forward slashes in strings only.
-  const raw = JSON.stringify(s)
-  return raw.replace(/<\/(script)/gi, '<\\/$1')
+  const raw = JSON.stringify(s);
+  return raw.replace(/<\/(script)/gi, "<\\/$1");
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 // Re-exports for back-compat (deprecated; use src/main/sdk/prompts instead)
-export { renderPrompt } from './prompts/index.js'
-export { LAYOUT_DIRECTIONS } from './prompts/slide-user.js'
+export { renderPrompt } from "./prompts/index.js";
+export { LAYOUT_DIRECTIONS } from "./prompts/slide-user.js";

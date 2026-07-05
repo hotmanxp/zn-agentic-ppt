@@ -1,4 +1,5 @@
-import type { PptSlide } from '../stores/pptGeneration.js'
+import { useEffect, useRef, useState } from "react";
+import type { PptSlide } from "../stores/pptGeneration.js";
 
 /**
  * Inline-render of one slide (no iframe).
@@ -12,31 +13,31 @@ import type { PptSlide } from '../stores/pptGeneration.js'
 const CANVAS_STYLE: React.CSSProperties = {
   flex: 1,
   margin: 24,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'linear-gradient(135deg, #1e3a8a 0%, #312e81 50%, #4c1d95 100%)',
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "linear-gradient(135deg, #1e3a8a 0%, #312e81 50%, #4c1d95 100%)",
   borderRadius: 12,
-  boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
-  overflow: 'hidden',
-  position: 'relative',
-}
+  boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
+  overflow: "hidden",
+  position: "relative",
+};
 
 const SLIDE_BG: React.CSSProperties = {
-  width: 'min(960px, 100%)',
-  aspectRatio: '16 / 9',
-  background: '#ffffff', // overridden by .layout-N class
+  width: "min(960px, 100%)",
+  aspectRatio: "16 / 9",
+  background: "#ffffff", // overridden by .layout-N class
   borderRadius: 12,
-  boxShadow: '0 20px 60px rgba(15,23,42,0.18), 0 4px 12px rgba(15,23,42,0.08)',
-  padding: '56px 72px',
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'center',
-  overflow: 'hidden',
-  position: 'relative',
-  color: '#0f172a',
+  boxShadow: "0 20px 60px rgba(15,23,42,0.18), 0 4px 12px rgba(15,23,42,0.08)",
+  padding: "56px 72px",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  overflow: "hidden",
+  position: "relative",
+  color: "#0f172a",
   fontFamily: '-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
-}
+};
 
 /**
  * Inject a robust style block so the LLM's plain <h1>/<ul>/<li>
@@ -85,6 +86,22 @@ const STYLE_BLOCK = `
   .slide-canvas code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; font-family: 'SF Mono', Monaco, monospace; }
   .slide-canvas pre { background: #0f172a; color: #e2e8f0; padding: 16px; border-radius: 6px; font-size: 14px; overflow: auto; }
   .slide-canvas section { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; }
+  /* The LLM authors slides at a 960×540 design grid (16:9) using
+     absolute positioning in pixel units. The .layout-frame wrapper
+     keeps that 960×540 footprint; the parent .slide-canvas is also
+     16:9 and we apply transform: scale() on .layout-frame to fit.
+     The JS in SlidePreview writes --slide-scale as a CSS variable
+     (see useSlideScale hook below) so the CSS is purely declarative. */
+  .slide-canvas.fit { padding: 0 !important; }
+  .slide-canvas .layout-frame {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 960px;
+    height: 540px;
+    transform-origin: top left;
+    transform: scale(var(--slide-scale, 1));
+  }
   .slide-canvas .skel-bullet, .slide-canvas .skel-notes { display: none; }
   .slide-canvas .slide-title, .slide-canvas div.slide-title {
     font-size: 56px; font-weight: 900; line-height: 1.05; margin: 0 0 8px;
@@ -251,66 +268,144 @@ const STYLE_BLOCK = `
     font-style: normal; letter-spacing: 0.1em;
   }
   .slide-canvas.layout-5 p::before { content: "— "; }
-`
+`;
 
 // HMR-safe style injection: every mount re-syncs the injected <style>
 // node so edits to STYLE_BLOCK during dev mode take effect immediately.
 // Uses a stable id so we replace in place rather than append duplicates.
-const STYLE_ELEMENT_ID = 'zn-ppt-slide-canvas-styles'
+const STYLE_ELEMENT_ID = "zn-ppt-slide-canvas-styles";
 function ensureStyleInjected() {
-  if (typeof document === 'undefined') return
-  let el = document.getElementById(STYLE_ELEMENT_ID) as HTMLStyleElement | null
-  if (el && el.textContent === STYLE_BLOCK) return
+  if (typeof document === "undefined") return;
+  let el = document.getElementById(STYLE_ELEMENT_ID) as HTMLStyleElement | null;
+  if (el && el.textContent === STYLE_BLOCK) return;
   if (!el) {
-    el = document.createElement('style')
-    el.id = STYLE_ELEMENT_ID
-    document.head.appendChild(el)
+    el = document.createElement("style");
+    el.id = STYLE_ELEMENT_ID;
+    document.head.appendChild(el);
   }
-  el.textContent = STYLE_BLOCK
+  el.textContent = STYLE_BLOCK;
 }
 
 export interface SlidePreviewProps {
-  slide: PptSlide | null
+  slide: PptSlide | null;
+}
+
+/**
+ * Watches a 16:9 slide canvas and writes a CSS scale factor so the
+ * 960×540 design grid (which the LLM writes the slide HTML against)
+ * shrinks to fit whatever container it lands in — sidebar preview,
+ * deck drawer, or full-width modal.
+ *
+ * Why we need this: the LLM-authored slide uses absolute positioning
+ * in pixel units (e.g. `top: 80px; left: 100px; font-size: 60px`).
+ * Without scaling, a slide designed for 960×540 looks fine on a
+ * 960px container but the right half is clipped when the container
+ * is 400px wide. The scale formula is `min(width/960, height/540)`
+ * so we never distort; if the container is wider than 16:9, we
+ * cap the width and use the height-based scale instead.
+ */
+function useSlideScale(
+  canvasRef: React.RefObject<HTMLElement>,
+  frameRef: React.RefObject<HTMLElement>,
+): number {
+  // The LLM authors slides against a 960×540 design grid using absolute
+  // pixel positioning, but its output often uses `min-height: 100vh` on
+  // the <section> (≈ 800-1080px) so the actual content can be much
+  // taller than 540px. We pick the SMALLER of:
+  //   - the scale that fits the canvas (width-or-height limited)
+  //   - the scale that fits the content (so it isn't clipped vertically)
+  // This keeps the slide visible in tiny previews AND prevents vertical
+  // overflow when the agent output is taller than the 16:9 design.
+  //
+  // Implementation note: we used to also resize the inner .layout-frame
+  // to its natural width to read scrollHeight accurately, but that
+  // mutated the DOM inside a React render and was observed by a
+  // MutationObserver, creating a feedback loop that pinned the React
+  // main thread at 100% CPU. The fix: just read scrollHeight in the
+  // current scaled state — browsers report the unscaled layout height
+  // for transformed elements, so this works correctly.
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const el = canvasRef.current;
+    const frame = frameRef.current;
+    if (!el) return;
+    let cancelled = false;
+    const compute = () => {
+      if (cancelled) return;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return;
+      const fitContainer = Math.min(r.width / 960, r.height / 540);
+      // scrollHeight on a transformed element returns the unscaled
+      // (post-transform) layout height, which is what we want.
+      let contentHeight = 540;
+      if (frame) {
+        const section = frame.querySelector("section") as HTMLElement | null;
+        if (section) contentHeight = section.scrollHeight;
+      }
+      const fitContent = contentHeight > 0 ? 540 / contentHeight : 1;
+      const next = Math.min(fitContainer, fitContent);
+      setScale((prev) => (Math.abs(prev - next) < 0.001 ? prev : next));
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => {
+      cancelled = true;
+      ro.disconnect();
+    };
+  }, [canvasRef, frameRef]);
+  return scale;
 }
 
 export function SlidePreview({ slide }: SlidePreviewProps) {
-  ensureStyleInjected()
+  ensureStyleInjected();
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const scale = useSlideScale(
+    slide ? canvasRef : ({ current: null } as any),
+    slide ? frameRef : ({ current: null } as any),
+  );
 
   if (!slide) {
     return (
       <div style={CANVAS_STYLE}>
-        <div style={{ color: '#94a3b8', fontSize: 14 }}>选择左侧幻灯片预览</div>
+        <div style={{ color: "#94a3b8", fontSize: 14 }}>选择左侧幻灯片预览</div>
       </div>
-    )
+    );
   }
 
-  if (slide.status === 'failed') {
+  if (slide.status === "failed") {
     return (
       <div style={CANVAS_STYLE}>
-        <div style={{ color: '#fca5a5', fontSize: 14, textAlign: 'center', padding: 24 }}>
-          生成失败: {slide.error ?? '未知错误'}
+        <div style={{ color: "#fca5a5", fontSize: 14, textAlign: "center", padding: 24 }}>
+          生成失败: {slide.error ?? "未知错误"}
         </div>
       </div>
-    )
+    );
   }
 
-  if (!slide.html || slide.status === 'layout' || slide.status === 'pending') {
+  if (!slide.html || slide.status === "layout" || slide.status === "pending") {
     return (
       <div style={CANVAS_STYLE}>
         <div style={SLIDE_BG}>
-          <div style={{ color: '#94a3b8', fontSize: 14, textAlign: 'center' }}>
-            {slide.status === 'layout' ? '布局占位 — 等待 AI 填充…' : '等待生成…'}
+          <div style={{ color: "#94a3b8", fontSize: 14, textAlign: "center" }}>
+            {slide.status === "layout" ? "布局占位 — 等待 AI 填充…" : "等待生成…"}
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div style={CANVAS_STYLE}>
-      <div className="slide-canvas" style={SLIDE_BG} data-layout={slide.layout ?? 2}>
-        <div className="layout-frame" dangerouslySetInnerHTML={{ __html: slide.html }} />
+      <div
+        ref={canvasRef}
+        className={`slide-canvas layout-${slide.layout ?? 2} fit`}
+        style={{ ...SLIDE_BG, padding: 0, ["--slide-scale" as any]: scale }}
+        data-layout={slide.layout ?? 2}
+      >
+        <div ref={frameRef} className="layout-frame" dangerouslySetInnerHTML={{ __html: slide.html }} />
       </div>
     </div>
-  )
+  );
 }

@@ -1,67 +1,81 @@
-import { ArrowLeft, ArrowRight, ArrowUpRight, CheckCircle, SpinnerGap } from '@phosphor-icons/react'
-import { App as AntdApp } from 'antd'
-import { useWorkbenchStore } from '../stores/workbench.js'
-import { usePptGenerationStore } from '../stores/pptGeneration.js'
-import { api } from '../lib/api.js'
-import { SlidePreview } from '../components/SlidePreview.js'
+import {
+  ArrowLeft,
+  ArrowRight,
+  ArrowUpRight,
+  CheckCircle,
+  SpinnerGap,
+} from "@phosphor-icons/react";
+import { App as AntdApp } from "antd";
+import { SlidePreview } from "../components/SlidePreview.js";
+import { api } from "../lib/api.js";
+import { usePptGenerationStore } from "../stores/pptGeneration.js";
+import { useWorkbenchStore } from "../stores/workbench.js";
 
 export function DeckPanel({
   onOpenSource,
 }: {
-  onOpenSource: () => void
+  onOpenSource: () => void;
 }) {
-  const slides = usePptGenerationStore((s) => s.slides)
-  const outlineDraft = useWorkbenchStore((s) => s.outlineDraft)
-  const selected = useWorkbenchStore((s) => s.selectedSlide)
-  const setSelectedSlide = useWorkbenchStore((s) => s.setSelectedSlide)
-  const activeProjectId = useWorkbenchStore((s) => s.activeProjectId)
-  const setToast = useWorkbenchStore((s) => s.setToast)
-  const { message, modal } = AntdApp.useApp()
+  const slides = usePptGenerationStore((s) => s.slides);
+  const outlineDraft = useWorkbenchStore((s) => s.outlineDraft);
+  const selected = useWorkbenchStore((s) => s.selectedSlide);
+  const setSelectedSlide = useWorkbenchStore((s) => s.setSelectedSlide);
+  const activeProjectId = useWorkbenchStore((s) => s.activeProjectId);
+  const setToast = useWorkbenchStore((s) => s.setToast);
+  const { message, modal } = AntdApp.useApp();
 
   // Order slides by outline (not by layout) so prev/next follows page order.
-  const ordered = outlineDraft.length > 0
-    ? outlineDraft.map((it) => slides[it.id]).filter((s): s is NonNullable<typeof s> => Boolean(s))
-    : Object.values(slides)
-  const safeIdx = Math.min(Math.max(0, selected), Math.max(0, ordered.length - 1))
-  const current = ordered[safeIdx] ?? ordered[0]
+  const ordered =
+    outlineDraft.length > 0
+      ? outlineDraft
+          .map((it) => slides[it.id])
+          .filter((s): s is NonNullable<typeof s> => Boolean(s))
+      : Object.values(slides);
+  const safeIdx = Math.min(Math.max(0, selected), Math.max(0, ordered.length - 1));
+  const current = ordered[safeIdx] ?? ordered[0];
 
   if (!current) {
     return (
       <div className="artifact-panel-body deck-panel">
-        <div style={{ padding: 24, color: 'var(--muted)', fontSize: 13 }}>
-          暂无已生成的页面。
-        </div>
+        <div style={{ padding: 24, color: "var(--muted)", fontSize: 13 }}>暂无已生成的页面。</div>
       </div>
-    )
+    );
   }
 
+  // Pass through the full 5-state status (pending | layout | generating |
+  // done | failed). The previous implementation collapsed anything that
+  // wasn't "done" into "failed", which made the preview show
+  // "生成失败: 未知错误" for slides still in layout/generating state (and
+  // also for any slide that lost its in-memory "done" status because the
+  // project was reopened mid-generation or the orchestrator was racing
+  // the IPC event delivery). SlidePreview handles each state correctly.
   const slideForPreview = {
     id: current.id,
     title: current.title,
-    status: current.status === 'done' ? 'done' as const : 'failed' as const,
-    html: current.html ?? '',
+    status: current.status,
+    html: current.html ?? "",
     layout: current.layout ?? 1,
     error: current.error,
-  }
+  };
 
   const handleRegenerate = async () => {
-    if (!activeProjectId) return
+    if (!activeProjectId) return;
     modal.confirm({
       title: `重新生成第 ${safeIdx + 1} 页？`,
       content: `「${current.title}」 将被重新生成。`,
-      okText: '重新生成',
-      cancelText: '取消',
+      okText: "重新生成",
+      cancelText: "取消",
       onOk: async () => {
         try {
-          await api.stage.slideRegenerate(activeProjectId, current.id)
-          message.success('已重新生成')
-          setToast('本页已重新生成')
+          await api.stage.slideRegenerate(activeProjectId, current.id);
+          message.success("已重新生成");
+          setToast("本页已重新生成");
         } catch (e) {
-          message.error(`生成失败：${e instanceof Error ? e.message : String(e)}`)
+          message.error(`生成失败：${e instanceof Error ? e.message : String(e)}`);
         }
       },
-    })
-  }
+    });
+  };
 
   return (
     <div className="artifact-panel-body deck-panel">
@@ -76,7 +90,9 @@ export function DeckPanel({
         >
           <ArrowLeft size={16} />
         </button>
-        <span>第 {safeIdx + 1} 页 / {ordered.length}</span>
+        <span>
+          第 {safeIdx + 1} 页 / {ordered.length}
+        </span>
         <button
           aria-label="下一页"
           disabled={safeIdx >= ordered.length - 1}
@@ -86,11 +102,11 @@ export function DeckPanel({
         </button>
         <button
           className="primary-action"
-          style={{ marginLeft: 'auto', height: 32, padding: '0 10px', fontSize: 12 }}
+          style={{ marginLeft: "auto", height: 32, padding: "0 10px", fontSize: 12 }}
           onClick={handleRegenerate}
-          disabled={current.status === 'generating'}
+          disabled={current.status === "generating"}
         >
-          {current.status === 'generating' ? <SpinnerGap size={13} /> : null}
+          {current.status === "generating" ? <SpinnerGap size={13} /> : null}
           重新生成此页
         </button>
       </div>
@@ -99,7 +115,9 @@ export function DeckPanel({
           <CheckCircle size={18} weight="fill" />
           <span>
             <b>本页为 AI 生成</b>
-            <small>生成时间 {current.durationMs ?? 0} ms · {current.layout ?? 1} 号布局</small>
+            <small>
+              生成时间 {current.durationMs ?? 0} ms · {current.layout ?? 1} 号布局
+            </small>
           </span>
         </div>
         <button onClick={onOpenSource}>
@@ -109,7 +127,7 @@ export function DeckPanel({
       <div className="thumbnail-strip">
         {ordered.map((s, i) => (
           <button
-            className={i === safeIdx ? 'is-active' : ''}
+            className={i === safeIdx ? "is-active" : ""}
             key={s.id}
             onClick={() => setSelectedSlide(i)}
             aria-label={`查看第 ${i + 1} 页`}
@@ -120,5 +138,5 @@ export function DeckPanel({
         ))}
       </div>
     </div>
-  )
+  );
 }
