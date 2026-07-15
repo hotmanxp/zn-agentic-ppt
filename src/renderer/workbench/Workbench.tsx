@@ -202,13 +202,20 @@ export function Workbench() {
           )}
         </div>
         {settingsView ? null : phase === "idle" ? (
-          <div className="composer-wrap">
-            <div className="composer">
-              <div style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 13 }}>
-                选择上方类型或快捷任务卡开始。
-              </div>
-            </div>
-          </div>
+          <Composer
+            onApproveSources={() => {
+              const id = useWorkbenchStore.getState().activeProjectId;
+              if (id) void useWorkbenchStore.getState().approveSources(id);
+            }}
+            onApproveOutline={() => {
+              const id = useWorkbenchStore.getState().activeProjectId;
+              if (id) void useWorkbenchStore.getState().approveOutline(id);
+            }}
+            onRegenerateOutline={() => {
+              const id = useWorkbenchStore.getState().activeProjectId;
+              if (id) void useWorkbenchStore.getState().approveSources(id);
+            }}
+          />
         ) : phase === "clarify" ? (
           <ClarificationComposer scenario={scenario} />
         ) : phase === "searching" ? (

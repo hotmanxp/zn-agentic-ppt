@@ -18,7 +18,7 @@ export function WelcomeStage({ onQuickStart }: { onQuickStart: (scenarioIdx: num
       <div className="welcome-symbol">
         <BrandMark />
       </div>
-      <div className="welcome-eyebrow">知述 · Agent 工作台</div>
+      <div className="welcome-eyebrow">企业知识驱动的演示 Agent</div>
       <h1>今天想完成什么材料？</h1>
       <p className="welcome-copy">基于企业知识库，快速生成可追溯、可调整、可导出的专业演示材料。</p>
       <div className="creation-steps" aria-label="演示任务创建步骤">
