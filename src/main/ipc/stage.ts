@@ -191,6 +191,7 @@ export function registerStageIPC() {
   ipcMain.handle(
     IPC.STAGE_SLIDE_REGENERATE,
     async (_, { id, slideId }: { id: string; slideId: string }) => {
+      console.log(`[stage:slide-regenerate] entered id=${id} slideId=${slideId}`);
       const { settings, outline } = await loadSettingsAndOutline(id);
       const target = outline.slides.find((s) => s.id === slideId);
       if (!target) throw new Error("slide not found");

@@ -42,6 +42,13 @@ interface PptGenerationState {
     completed: number;
     total: number;
   }) => void;
+  /**
+   * Single-slide regeneration completion. Driven by IPC.HTML_SLIDE_UPDATED
+   * (broadcast from main when slideRegenerate finishes). Carries just the
+   * new html — completion counts don't change because the slide was already
+   * counted as done in the original generate run.
+   */
+  applySlideUpdated: (e: { projectId: string; slideId: string; html: string }) => void;
   applyGenerateDone: (e: {
     projectId: string;
     completed: number;
@@ -154,6 +161,18 @@ export const usePptGenerationStore = create<PptGenerationState>((set, get) => ({
       completed,
       failed,
     });
+  },
+
+  applySlideUpdated: (e) => {
+    const cur = get();
+    if (cur.projectId && cur.projectId !== e.projectId) return;
+    const existing = cur.slides[e.slideId];
+    if (!existing) return;
+    const next = {
+      ...cur.slides,
+      [e.slideId]: { ...existing, status: "done" as SlideStatus, html: e.html },
+    };
+    set({ slides: next });
   },
 
   applyGenerateDone: (e) => {

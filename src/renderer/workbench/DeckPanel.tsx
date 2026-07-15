@@ -9,6 +9,7 @@ import { App as AntdApp } from "antd";
 import { SlidePreview } from "../components/SlidePreview.js";
 import { api } from "../lib/api.js";
 import { usePptGenerationStore } from "../stores/pptGeneration.js";
+import { useStageStreamStore } from "../stores/stageStream.js";
 import { useWorkbenchStore } from "../stores/workbench.js";
 
 export function DeckPanel({
@@ -67,11 +68,21 @@ export function DeckPanel({
       cancelText: "取消",
       onOk: async () => {
         try {
+          // Pre-arm stageStream so the in-flight STAGE_SLIDE_REGENERATE_STREAM
+          // events are accepted by applyEvent. The stream is what
+          // useStageStreamSubscription forwards to the pptGeneration store,
+          // so without this the regen completes on disk but the UI stays
+          // stale until a manual reload.
+          useStageStreamStore
+            .getState()
+            .prepare("slide-regen", activeProjectId, current.id);
           await api.stage.slideRegenerate(activeProjectId, current.id);
           message.success("已重新生成");
           setToast("本页已重新生成");
         } catch (e) {
           message.error(`生成失败：${e instanceof Error ? e.message : String(e)}`);
+        } finally {
+          useStageStreamStore.getState().reset();
         }
       },
     });
