@@ -51,14 +51,4 @@ export const IPC = {
   STAGE_SLIDE_REGENERATE_STREAM: "stage:slide-regenerate-stream",
   STAGE_HTML_SLIDE_READY: "stage:html-slide-ready",
   STAGE_HTML_GENERATE_DONE: "stage:html-generate-done",
-
-  // Stage 1 brief optimization (renderer → main, invoke)
-  STAGE_BRIEF_OPTIMIZE_START: "stage:brief-optimize-start",
-  STAGE_BRIEF_OPTIMIZE_CANCEL: "stage:brief-optimize-cancel",
-  STAGE_BRIEF_OPTIMIZE_ANSWER: "stage:brief-optimize-answer",
-
-  // Main → renderer (push)
-  STAGE_ASK_USER_QUESTION: "stage:ask-user-question",
-  STAGE_BRIEF_OPTIMIZE_DONE: "stage:brief-optimize-done",
-  STAGE_BRIEF_OPTIMIZE_ERROR: "stage:brief-optimize-error",
 } as const;

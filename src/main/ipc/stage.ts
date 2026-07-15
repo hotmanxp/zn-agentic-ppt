@@ -72,7 +72,7 @@ export function registerStageIPC() {
     if (!project) throw new Error("project not found");
     const brief = project.brief;
     if (!brief?.markdown) {
-      throw new Error("project has no brief — user must complete Stage 1 优化 first");
+      throw new Error("请先在第一阶段填写项目信息（主题/听众/目标/时长/页数）");
     }
     const source = await outlineFs.readSource(id);
     const settings = await settingsFs.getSettings();

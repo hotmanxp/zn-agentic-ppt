@@ -1,34 +1,19 @@
 import { useEffect } from "react";
-import { api } from "../lib/api.js";
-import { useBriefOptimizeStore } from "../stores/briefOptimize.js";
-import { useWorkbenchStore } from "../stores/workbench.js";
 
 /**
- * Mounted at Workbench root. Subscribes to brief-agent events so the
- * AskUserQuestionModal can pick them up. Filters by activeProjectId
- * so events for other projects don't bleed in.
+ * Mounted at Workbench root. Previously subscribed to brief-agent events
+ * so the AskUserQuestionModal could pick them up; the brief system has
+ * been removed (the ClarificationComposer form now writes the brief
+ * directly), so this hook is a no-op kept for symmetry with other
+ * subscription hooks (`useStageStreamSubscription`, `useHtmlGenerationSubscription`).
+ *
+ * If new push-events are added later, the registration pattern from those
+ * siblings is the right starting point.
  */
 export function useWorkbenchSubscriptions(): void {
   useEffect(() => {
-    const u1 = api.brief.onAskUserQuestion((e: any) => {
-      const active = useWorkbenchStore.getState().activeProjectId;
-      if (e.projectId && active && e.projectId !== active) return;
-      useBriefOptimizeStore.getState().applyQuestion(e);
-    });
-    const u2 = api.brief.onDone((e: any) => {
-      const active = useWorkbenchStore.getState().activeProjectId;
-      if (e.projectId && active && e.projectId !== active) return;
-      useBriefOptimizeStore.getState().applyDone(e.brief);
-    });
-    const u3 = api.brief.onError((e: any) => {
-      const active = useWorkbenchStore.getState().activeProjectId;
-      if (e.projectId && active && e.projectId !== active) return;
-      useBriefOptimizeStore.getState().applyError(e.error);
-    });
     return () => {
-      u1();
-      u2();
-      u3();
+      // no subscriptions to clean up
     };
   }, []);
 }

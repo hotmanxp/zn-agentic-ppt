@@ -61,16 +61,6 @@ const api = {
       ipcRenderer.invoke(IPC.STAGE_SLIDE_CANCEL, { id, slideId }),
     htmlCancel: (id: string) => ipcRenderer.invoke(IPC.STAGE_HTML_CANCEL, { id }),
   },
-  brief: {
-    optimize: (id: string, hint: any) =>
-      ipcRenderer.invoke(IPC.STAGE_BRIEF_OPTIMIZE_START, { id, hint }),
-    cancel: () => ipcRenderer.invoke(IPC.STAGE_BRIEF_OPTIMIZE_CANCEL),
-    answer: (qid: string, value: any) =>
-      ipcRenderer.invoke(IPC.STAGE_BRIEF_OPTIMIZE_ANSWER, { qid, value }),
-    onAskUserQuestion: (cb: (e: any) => void) => subscribe(IPC.STAGE_ASK_USER_QUESTION, cb),
-    onDone: (cb: (e: any) => void) => subscribe(IPC.STAGE_BRIEF_OPTIMIZE_DONE, cb),
-    onError: (cb: (e: any) => void) => subscribe(IPC.STAGE_BRIEF_OPTIMIZE_ERROR, cb),
-  },
 };
 
 function subscribe(channel: string, cb: (e: any) => void): () => void {

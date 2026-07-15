@@ -88,7 +88,7 @@ export function ArtifactPanel() {
       {artifactTab === "deck" && (phase === "buildingOutline" || phase === "outline") && (
         <OutlinePanelFromStore />
       )}
-      {artifactTab === "deck" && (phase === "generating" || phase === "complete") && (
+      {artifactTab === "deck" && phase === "generating" && (
         <GenerationProgressPanel brief={brief} />
       )}
       {artifactTab === "deck" && phase === "complete" && (

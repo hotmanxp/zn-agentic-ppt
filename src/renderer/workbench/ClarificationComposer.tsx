@@ -1,7 +1,6 @@
-import { ArrowRight, FileText, Sparkle, Target, Timer, UsersThree } from "@phosphor-icons/react";
+import { ArrowRight, FileText, Target, Timer, UsersThree } from "@phosphor-icons/react";
 import { App as AntdApp } from "antd";
 import { api } from "../lib/api.js";
-import { useBriefOptimizeStore } from "../stores/briefOptimize.js";
 import { useProjectStore } from "../stores/project.js";
 import { useWorkbenchStore } from "../stores/workbench.js";
 import { getBriefFieldCopy } from "./briefCopy.js";
@@ -17,8 +16,6 @@ export function ClarificationComposer({ scenario }: { scenario: Scenario }) {
   const setPrompt = useWorkbenchStore((s) => s.setPrompt);
   const updateBrief = useWorkbenchStore((s) => s.updateBriefField);
   const useExample = useWorkbenchStore((s) => s.useExampleBrief);
-  const startBriefOptimize = useBriefOptimizeStore((s) => s.start);
-  const optimizePhase = useBriefOptimizeStore((s) => s.phase);
   const { message } = AntdApp.useApp();
 
   const ready =
@@ -42,30 +39,11 @@ export function ClarificationComposer({ scenario }: { scenario: Scenario }) {
     void state.confirmBrief(id);
   };
 
-  const handleOptimize = async () => {
-    const state = useWorkbenchStore.getState();
-    let id = state.activeProjectId;
-    if (!id) {
-      const title = brief.client.trim() || "新演示任务";
-      const m = await api.project.create(title);
-      await useProjectStore.getState().load();
-      await state.openProject(m.id);
-      id = m.id;
-    }
-    try {
-      await startBriefOptimize(id, null);
-      message.success("项目信息已生成");
-    } catch (e) {
-      message.error(`优化失败：${e instanceof Error ? e.message : String(e)}`);
-    }
-  };
-
   return (
     <div className="clarification-composer-wrap">
       <div className="clarification-card clarification-composer">
         <div className="clarification-header">
           <div>
-            <Sparkle size={17} weight="fill" />
             <span>
               <b>先补充这几项</b>
               <small>{copy.header}</small>
@@ -155,15 +133,6 @@ export function ClarificationComposer({ scenario }: { scenario: Scenario }) {
           <div>
             <button className="secondary-action" onClick={useExample}>
               使用示例数据
-            </button>
-            <button
-              className="secondary-action"
-              onClick={handleOptimize}
-              disabled={optimizePhase === "optimizing" || optimizePhase === "asking"}
-              title="调用 LLM 优化项目信息"
-            >
-              <Sparkle size={14} weight="fill" />{" "}
-              {optimizePhase === "optimizing" ? "优化中…" : "✨ 优化"}
             </button>
             <button className="primary-action" disabled={!ready} onClick={handleConfirm}>
               下一步，查找资料 <ArrowRight size={16} />

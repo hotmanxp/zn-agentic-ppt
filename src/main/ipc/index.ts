@@ -1,4 +1,3 @@
-import { registerBriefIPC } from "./brief.js";
 import { registerGenerationIPC } from "./generation.js";
 import { registerProjectIPC } from "./project.js";
 import { registerSettingsIPC } from "./settings.js";
@@ -9,5 +8,4 @@ export function registerAllIPC(): void {
   registerSettingsIPC();
   registerGenerationIPC();
   registerStageIPC();
-  registerBriefIPC();
 }

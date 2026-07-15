@@ -1,11 +1,9 @@
 import { CheckCircle, X } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
-import { AskUserQuestionModal } from "../components/AskUserQuestionModal.js";
 import { useHtmlGenerationSubscription } from "../hooks/useHtmlGenerationSubscription.js";
 import { useStageStreamSubscription } from "../hooks/useStageStreamSubscription.js";
 import { useWorkbenchSubscriptions } from "../hooks/useWorkbenchSubscriptions.js";
 import { api } from "../lib/api.js";
-import { useBriefOptimizeStore } from "../stores/briefOptimize.js";
 import { usePptGenerationStore } from "../stores/pptGeneration.js";
 import { useProjectStore } from "../stores/project.js";
 import { useStageStreamStore } from "../stores/stageStream.js";
@@ -74,46 +72,8 @@ export function Workbench() {
     return () => [t1, t2, t3, t4, t5].forEach(clearTimeout);
   }, [phase, setPhase, setSearchProgress]);
 
-  // Coordinator: when brief.optimize finishes, parse the JSON markdown
-  // back into brief fields and persist via collectSave.
-  const briefPhase = useBriefOptimizeStore((s) => s.phase);
-  const lastBrief = useBriefOptimizeStore((s) => s.lastBrief);
-  useEffect(() => {
-    if (briefPhase !== "done" || !lastBrief) return;
-    const id = activeProjectId;
-    if (!id) {
-      useBriefOptimizeStore.getState().reset();
-      return;
-    }
-    try {
-      const parsed = JSON.parse(lastBrief.markdown);
-      if (parsed && typeof parsed === "object") {
-        const b = parsed.brief ?? parsed;
-        if (b.client || b.audience || b.goal || b.duration || b.pages) {
-          const patch: Record<string, string> = {};
-          for (const k of [
-            "client",
-            "audience",
-            "goal",
-            "duration",
-            "pages",
-            "template",
-          ] as const) {
-            if (typeof b[k] === "string") patch[k] = b[k];
-          }
-          useWorkbenchStore.setState((s) => ({ brief: { ...s.brief, ...patch } }));
-        }
-      }
-      const newBrief = useWorkbenchStore.getState().brief;
-      const scenario = useWorkbenchStore.getState().scenario;
-      const summary = `${scenario.name}：面向${newBrief.client}的${newBrief.audience}，生成一份${newBrief.duration}、${newBrief.pages}的演示材料。`;
-      void api.stage.collectSave(id, summary, "", { markdown: lastBrief.markdown });
-      setToast("项目信息已自动填充");
-    } catch (e) {
-      setToast(`解析失败：${e instanceof Error ? e.message : String(e)}`);
-    }
-    useBriefOptimizeStore.getState().reset();
-  }, [briefPhase, lastBrief, activeProjectId, setToast]);
+  // Coordinator: brief fields are now filled directly by ClarificationComposer
+  // (no LLM optimize step). No coordinator logic required here.
 
   // Derive phase from source-of-truth stores.
   useEffect(() => {
@@ -247,7 +207,6 @@ export function Workbench() {
       <SourceDetailDrawer />
       <DeckPreviewDrawer />
       {deckPreviewOpen && <div style={{ width: 8, background: "#e8e7e2" }} aria-hidden="true" />}
-      {briefPhase === "asking" && <AskUserQuestionModal />}
       {toast && (
         <div className="agent-toast" role="status">
           <CheckCircle size={18} weight="fill" />

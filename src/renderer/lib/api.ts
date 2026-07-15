@@ -131,34 +131,7 @@ export interface BridgeApi {
       }) => void,
     ): () => void;
   };
-  brief: {
-    optimize(id: string, hint: ProjectBrief | null): Promise<{ ok: boolean }>;
-    cancel(): Promise<{ ok: boolean }>;
-    answer(
-      qid: string,
-      value: { cancelled: boolean; value?: Record<string, string | string[]> },
-    ): Promise<{ ok: boolean }>;
-    onAskUserQuestion(
-      cb: (e: {
-        projectId: string;
-        qid: string;
-        turn: 1 | 2;
-        questions: Array<{
-          question: string;
-          header: string;
-          options: Array<{ label: string; description?: string }>;
-          multiSelect: boolean;
-        }>;
-      }) => void,
-    ): () => void;
-    onDone(cb: (e: { projectId: string; brief: ProjectBrief }) => void): () => void;
-    onError(
-      cb: (e: {
-        projectId: string;
-        error: { code: string; message: string; retryable: boolean };
-      }) => void,
-    ): () => void;
-  };
+  brief: never;
 }
 
 declare global {

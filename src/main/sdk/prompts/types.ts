@@ -12,8 +12,7 @@ export type PromptId =
   | "OUTLINE_PROMPT"
   | "REGENERATE_PROMPT"
   | "SLIDE_SYSTEM_PROMPT"
-  | "SLIDE_USER_PROMPT"
-  | "BRIEF_OPTIMIZE_PROMPT";
+  | "SLIDE_USER_PROMPT";
 
 export interface PromptSpec {
   id: PromptId;
