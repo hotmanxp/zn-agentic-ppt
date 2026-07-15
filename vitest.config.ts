@@ -9,5 +9,15 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.test.{ts,tsx}"],
     exclude: ["node_modules", "dist"],
+    // The SDK bridge (zai-bridge.ts) and runner.ts import `electron` for
+    // `app.getPath`. Vitest cannot load the real Electron binary (which
+    // expects to be launched as the main process), so we inline it and
+    // stub it via `vi.mock("electron", ...)` in any test that loads the
+    // bridge transitively.
+    server: {
+      deps: {
+        inline: ["electron"],
+      },
+    },
   },
 });

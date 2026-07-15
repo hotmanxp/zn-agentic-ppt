@@ -25,6 +25,21 @@ await build({
     "@modelcontextprotocol/*",
     "google-auth-library",
     "fsevents",
+    // zai-agent-core runtime deps — keep as real ESM/CJS at runtime to avoid
+    // esbuild inlining dynamic require()s of Node built-ins (e.g. "path"
+    // inside proper-lockfile, which breaks Electron's ESM main bundle).
+    "proper-lockfile",
+    "js-yaml",
+    "execa",
+    "chalk",
+    "figures",
+    "diff",
+    "lru-cache",
+    "lodash-es",
+    "axios",
+    "undici",
+    "https-proxy-agent",
+    "zod",
   ],
   sourcemap: true,
   loader: { ".ts": "ts" },

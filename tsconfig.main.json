@@ -6,5 +6,8 @@
     "outDir": "dist/main",
     "rootDir": "src"
   },
-  "include": ["src/main", "src/preload", "src/shared"]
+  "include": ["src/main", "src/preload", "src/shared"],
+  "exclude": [
+    "src/main/sdk/zai-agent-core/opencc-internals/**/*"
+  ]
 }
