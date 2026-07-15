@@ -98,6 +98,20 @@ function PromptCard({ spec, onReset }: { spec: PromptSpec; onReset: () => void }
         autoSize={{ minRows: 6, maxRows: 18 }}
         style={{ fontFamily: "monospace", fontSize: 12 }}
       />
+      {spec.variables.length > 0 && (
+        <div className="prompt-variables">
+          <div className="prompt-variables-label">模板变量</div>
+          <ul className="prompt-variables-list">
+            {spec.variables.map((v) => (
+              <li key={v.name} className="prompt-variable">
+                <span className={`prompt-variable-type ${v.type === "json" ? "is-json" : ""}`}>{v.type}</span>
+                <code className="prompt-variable-name">{`{{${v.name}}}`}</code>
+                <span className="prompt-variable-desc">{v.description}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
         <Button onClick={onReset}>重置为默认</Button>
         <Button type="primary" disabled={!dirty} onClick={handleSave}>

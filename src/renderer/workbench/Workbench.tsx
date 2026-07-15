@@ -17,7 +17,7 @@ import { Composer } from "./Composer.js";
 import { Conversation } from "./Conversation.js";
 import { DeckPreviewDrawer } from "./DeckPreviewDrawer.js";
 import { Header } from "./Header.js";
-import { SettingsModal } from "./SettingsModal.js";
+import { SettingsView } from "./SettingsView.js";
 import { Sidebar } from "./Sidebar.js";
 import { SourceDetailDrawer } from "./SourceDetailDrawer.js";
 import { WelcomeStage } from "./WelcomeStage.js";
@@ -48,7 +48,10 @@ export function Workbench() {
   const pptGenCompleted = usePptGenerationStore((s) => s.completed);
   const loadProjects = useProjectStore((s) => s.load);
 
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsView, setSettingsView] = useState(false);
+  const openSettings = () => setSettingsView(true);
+  const toggleSettings = () => setSettingsView((v) => !v);
+  const closeSettings = () => setSettingsView(false);
 
   useEffect(() => {
     loadProjects();
@@ -173,18 +176,32 @@ export function Workbench() {
     : undefined;
 
   return (
-    <div className={`agent-app ${layoutClass}`} style={layoutStyle}>
-      <Sidebar onSettings={() => setSettingsOpen(true)} onNotify={setToast} />
+    <div className={`agent-app ${layoutClass} ${settingsView ? "settings-view-open" : ""}`} style={layoutStyle}>
+      <Sidebar
+        onSettings={openSettings}
+        onNotify={setToast}
+        onNewTask={() => {
+          if (settingsView) closeSettings();
+          handleNewTask();
+        }}
+        settingsActive={settingsView}
+      />
       <main className="agent-workspace">
-        <Header />
+        <Header overrideTitle={settingsView ? "模型与提示词设置" : undefined} />
         <div className="workspace-body">
-          {phase === "idle" && <WelcomeStage onQuickStart={handleQuickStart} />}
-          {phase === "clarify" && (
-            <ClarificationFlow scenario={scenario} notes={clarificationNotes} />
+          {settingsView ? (
+            <SettingsView />
+          ) : (
+            <>
+              {phase === "idle" && <WelcomeStage onQuickStart={handleQuickStart} />}
+              {phase === "clarify" && (
+                <ClarificationFlow scenario={scenario} notes={clarificationNotes} />
+              )}
+              {phase !== "idle" && phase !== "clarify" && <Conversation />}
+            </>
           )}
-          {phase !== "idle" && phase !== "clarify" && <Conversation />}
         </div>
-        {phase === "idle" ? (
+        {settingsView ? null : phase === "idle" ? (
           <div className="composer-wrap">
             <div className="composer">
               <div style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 13 }}>
@@ -223,7 +240,6 @@ export function Workbench() {
       <SourceDetailDrawer />
       <DeckPreviewDrawer />
       {deckPreviewOpen && <div style={{ width: 8, background: "#e8e7e2" }} aria-hidden="true" />}
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       {briefPhase === "asking" && <AskUserQuestionModal />}
       {toast && (
         <div className="agent-toast" role="status">

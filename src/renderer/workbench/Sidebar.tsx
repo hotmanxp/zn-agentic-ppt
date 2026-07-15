@@ -2,6 +2,7 @@ import {
   BookOpen,
   DotsThree,
   FolderOpen,
+  GearSix,
   MagnifyingGlass,
   Plus,
   SidebarSimple,
@@ -18,9 +19,16 @@ import { BrandMark } from "./primitives/BrandMark.js";
 interface SidebarProps {
   onSettings: () => void;
   onNotify: (msg: string) => void;
+  /** Reset the wizard to the WelcomeStage (phase='idle'). Used by the
+   *  "新建演示任务" button — see the bug fix for the previous behavior
+   *  where this button bypassed scenario selection and jumped straight
+   *  to 'clarify'. */
+  onNewTask: () => void;
+  /** True when the settings view is currently rendered (sidebar item shows active state). */
+  settingsActive?: boolean;
 }
 
-export function Sidebar({ onSettings, onNotify }: SidebarProps) {
+export function Sidebar({ onSettings, onNotify, onNewTask, settingsActive = false }: SidebarProps) {
   const collapsed = useWorkbenchStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useWorkbenchStore((s) => s.toggleSidebar);
   const activeProjectId = useWorkbenchStore((s) => s.activeProjectId);
@@ -86,16 +94,7 @@ export function Sidebar({ onSettings, onNotify }: SidebarProps) {
       <button
         className="new-task-button"
         aria-label="新建演示任务"
-        onClick={async () => {
-          try {
-            const m = await api.project.create("新演示任务");
-            await loadProjects();
-            await openProject(m.id);
-            useWorkbenchStore.setState({ phase: "clarify" });
-          } catch (e) {
-            message.error(`创建失败：${e instanceof Error ? e.message : String(e)}`);
-          }
-        }}
+        onClick={onNewTask}
       >
         <Plus size={17} weight="bold" />
         {!collapsed && <span>新建演示任务</span>}
@@ -110,9 +109,14 @@ export function Sidebar({ onSettings, onNotify }: SidebarProps) {
           <BookOpen size={18} />
           {!collapsed && <span>企业知识库</span>}
         </button>
-        <button className="sidebar-nav-item" aria-label="设置" onClick={onSettings}>
-          <DotsThree size={18} />
-          {!collapsed && <span>设置</span>}
+        <button
+          className={`sidebar-nav-item ${settingsActive ? "is-active" : ""}`}
+          aria-label="模型与提示词设置"
+          aria-pressed={settingsActive}
+          onClick={onSettings}
+        >
+          <GearSix size={18} />
+          {!collapsed && <span>模型与提示词设置</span>}
         </button>
       </nav>
 

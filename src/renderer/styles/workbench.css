@@ -3089,3 +3089,164 @@ body.is-resizing-preview {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Settings view (embedded in workspace-body) ---------- */
+.settings-view {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  padding: 32px 40px 40px;
+  overflow-y: auto;
+}
+.settings-view-inner {
+  display: flex;
+  width: min(960px, 100%);
+  margin: 0 auto;
+  flex-direction: column;
+  gap: 24px;
+}
+.settings-view-inner > .settings-form-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.settings-view-inner > .settings-form-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: var(--body);
+}
+.settings-view-tabs {
+  display: flex;
+  gap: 24px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+.settings-view-tab {
+  border: 0;
+  background: transparent;
+  padding: 10px 0;
+  margin-bottom: -1px;
+  color: var(--body);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+.settings-view-tab:hover {
+  color: var(--ink);
+}
+.settings-view-tab.is-active {
+  color: var(--orange-strong);
+  border-bottom-color: var(--orange-strong);
+}
+.settings-view-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.settings-llm-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.settings-llm-form .settings-form-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.settings-llm-form .settings-form-subtitle {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--body);
+}
+.settings-view-loading {
+  padding: 24px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.settings-test-result {
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+.settings-test-result.is-ok {
+  background: var(--green-pale, #edf8f0);
+  color: var(--green, #2f8f58);
+}
+.settings-test-result.is-fail {
+  background: #fef2f2;
+  color: #dc2626;
+}
+.settings-form-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 16px;
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+/* Prompt template variables list (per spec) */
+.prompt-variables {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.prompt-variables-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.prompt-variables-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.prompt-variable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--body);
+  flex-wrap: wrap;
+}
+.prompt-variable-type {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border: 1px solid #d6e4ff;
+  border-radius: 4px;
+  background: #f5f9ff;
+  color: #2b6cff;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  flex: 0 0 auto;
+}
+.prompt-variable-type.is-json {
+  border-color: #e5d4f7;
+  background: #faf5ff;
+  color: #7c3aed;
+}
+.prompt-variable-name {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  color: var(--ink);
+  background: transparent;
+  padding: 0;
+}
+.prompt-variable-desc {
+  color: var(--body);
+  font-size: 13px;
+}

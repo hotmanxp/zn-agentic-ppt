@@ -1,4 +1,4 @@
-import { App as AntdApp, Button, Form, Input, Modal, Select } from "antd";
+import { App as AntdApp, Button, Form, Input, Select } from "antd";
 import { useEffect, useState } from "react";
 import { PromptSettings } from "../components/PromptSettings.js";
 import { useSettingsStore } from "../stores/settings.js";
@@ -10,53 +10,31 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
-export function SettingsModal({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
+export function SettingsView() {
   const [tab, setTab] = useState<TabKey>("llm");
 
   return (
-    <Modal
-      open={open}
-      onCancel={onClose}
-      footer={null}
-      width={960}
-      title="设置"
-      destroyOnHidden
-      styles={{ body: { padding: 0 } }}
-    >
-      <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", minHeight: 540 }}>
-        <div
-          style={{ background: "#f9fafb", borderRight: "1px solid #e5e7eb", padding: "16px 8px" }}
-        >
+    <div className="settings-view">
+      <div className="settings-view-inner">
+        <div className="settings-view-tabs" role="tablist">
           {TABS.map((t) => (
-            <div
+            <button
               key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              className={`settings-view-tab ${tab === t.key ? "is-active" : ""}`}
               onClick={() => setTab(t.key)}
-              style={{
-                padding: "8px 12px",
-                color: tab === t.key ? "#FF8839" : "#374151",
-                background: tab === t.key ? "#fef0e4" : "transparent",
-                borderRadius: 6,
-                fontWeight: tab === t.key ? 500 : 400,
-                fontSize: 14,
-                cursor: "pointer",
-                marginBottom: 4,
-              }}
             >
               {t.label}
-            </div>
+            </button>
           ))}
         </div>
-        <div style={{ padding: "24px 32px", maxHeight: 540, overflowY: "auto" }}>
+        <div className="settings-view-panel">
           {tab === "llm" ? <LLMForm /> : <PromptSettings />}
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }
 
@@ -76,15 +54,15 @@ function LLMForm() {
   useEffect(() => {
     setForm(settings);
   }, [settings]);
-  if (!form) return <div style={{ padding: 24 }}>加载中...</div>;
+  if (!form) return <div className="settings-view-loading">加载中...</div>;
 
   const update = (patch: Partial<typeof form.llm>) =>
     setForm((s) => (s ? { ...s, llm: { ...s.llm, ...patch } } : s));
 
   return (
-    <>
-      <h2 style={{ margin: "0 0 4px" }}>LLM 服务</h2>
-      <p style={{ color: "#6b7280", margin: "0 0 24px", fontSize: 14 }}>
+    <div className="settings-llm-form">
+      <h2 className="settings-form-title">LLM 服务</h2>
+      <p className="settings-form-subtitle">
         配置用于生成 PPT 的 LLM 服务。设置存在本地，不会发送到外部。
       </p>
       <Form layout="vertical">
@@ -140,28 +118,14 @@ function LLMForm() {
         </Form.Item>
         {testResult && (
           <div
-            style={{
-              padding: 12,
-              background: testResult.ok ? "#f0fdf4" : "#fef2f2",
-              borderRadius: 6,
-              marginBottom: 16,
-              color: testResult.ok ? "#16a34a" : "#dc2626",
-            }}
+            className={`settings-test-result ${testResult.ok ? "is-ok" : "is-fail"}`}
           >
             {testResult.ok
               ? `✓ 连接成功${testResult.models ? `，模型：${testResult.models.join(", ")}` : ""}`
               : `✗ ${testResult.error}`}
           </div>
         )}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 8,
-            paddingTop: 16,
-            borderTop: "1px solid #e5e7eb",
-          }}
-        >
+        <div className="settings-form-footer">
           <Button onClick={() => setForm(settings)}>恢复</Button>
           <Button
             type="primary"
@@ -176,6 +140,6 @@ function LLMForm() {
           </Button>
         </div>
       </Form>
-    </>
+    </div>
   );
 }

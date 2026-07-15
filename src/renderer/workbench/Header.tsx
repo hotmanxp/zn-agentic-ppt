@@ -12,32 +12,38 @@ function flowIndex(phase: WorkbenchPhase): number {
   return -1;
 }
 
-export function Header() {
+interface HeaderProps {
+  /** When set, header renders this title and hides phase-specific UI. */
+  overrideTitle?: string;
+}
+
+export function Header({ overrideTitle }: HeaderProps = {}) {
   const phase = useWorkbenchStore((s) => s.phase);
   const scenarioName = useWorkbenchStore((s) => s.scenario.name);
   const client = useWorkbenchStore((s) => s.brief.client);
   const isRunning = phase === "generating" || phase === "searching" || phase === "buildingOutline";
   const isIdle = phase === "idle";
-  const showOrb = phase === "generating" || phase === "complete";
+  const showOrb = !overrideTitle && (phase === "generating" || phase === "complete");
   const idx = flowIndex(phase);
-  // For non-idle phases, prefer the brief's client when set, falling back
-  // to the scenario name. Idle shows the generic placeholder.
-  const title = isIdle ? "新建演示任务" : client.trim() || scenarioName;
+  // Override title (e.g. settings view) wins; otherwise idle shows the
+  // generic placeholder, non-idle uses brief.client or scenario name.
+  const title = overrideTitle ?? (isIdle ? "新建演示任务" : client.trim() || scenarioName);
+  const showPhaseChrome = !overrideTitle && !isIdle;
 
   return (
     <header className="workspace-header">
-      <div className={`workspace-title ${isIdle ? "is-simple" : ""}`}>
-        {!isIdle && showOrb && (
+      <div className={`workspace-title ${isIdle && !overrideTitle ? "is-simple" : ""}`}>
+        {showOrb && (
           <div className={`status-orb ${isRunning ? "is-running" : ""}`}>
             {isRunning ? <SpinnerGap size={15} /> : <Check size={14} weight="bold" />}
           </div>
         )}
         <div>
           <strong title={title}>{title}</strong>
-          {!isIdle && <span>{scenarioName}</span>}
+          {showPhaseChrome && <span>{scenarioName}</span>}
         </div>
       </div>
-      {phase !== "idle" && (
+      {showPhaseChrome && (
         <div className="flow-steps" aria-label="生成流程">
           {FLOW_STEPS.map((step, i) => (
             <span key={step} className={i < idx ? "is-done" : i === idx ? "is-active" : ""}>
