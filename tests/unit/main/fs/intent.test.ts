@@ -1,23 +1,18 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { IntentSummary } from "../../../../src/shared/intent.js";
+import { setProjectsDirForTest } from "../../../../src/main/fs/paths.js";
 
 let workDir: string;
-let prevDataDir: string | undefined;
 
 beforeEach(() => {
   workDir = mkdtempSync(join(tmpdir(), "intent-test-"));
-  prevDataDir = process.env.ZN_AGENTIC_PPT_TEST_DATA_DIR;
-  process.env.ZN_AGENTIC_PPT_TEST_DATA_DIR = workDir;
-  vi.resetModules();
+  setProjectsDirForTest(workDir);
 });
 afterEach(() => {
   rmSync(workDir, { recursive: true, force: true });
-  if (prevDataDir === undefined) delete process.env.ZN_AGENTIC_PPT_TEST_DATA_DIR;
-  else process.env.ZN_AGENTIC_PPT_TEST_DATA_DIR = prevDataDir;
-  vi.restoreAllMocks();
 });
 
 describe("intent fs", () => {
