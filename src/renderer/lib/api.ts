@@ -9,6 +9,8 @@ import type {
   Settings,
   StyleSettings,
 } from "@shared/types";
+import type { IntentGenerateResponse, IntentStreamPayload } from "../../shared/ipc-types.js";
+import type { IntentSummary } from "../../shared/intent.js";
 
 export type { OutlineSlide };
 
@@ -106,6 +108,9 @@ export interface BridgeApi {
       error?: string;
     }>;
     htmlCancel(id: string): Promise<{ ok: boolean }>;
+    intentGenerate(id: string): Promise<IntentGenerateResponse>;
+    intentCancel(id: string): Promise<{ ok: boolean }>;
+    onIntentStream(cb: (e: IntentStreamPayload) => void): () => void;
     styleSave(id: string, style: StyleSettings): Promise<void>;
     onSlideUpdated(
       cb: (e: { projectId: string; slideId: string; html: string }) => void,

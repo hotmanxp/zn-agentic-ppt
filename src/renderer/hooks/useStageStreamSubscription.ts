@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { api } from "../lib/api.js";
 import { useStageStreamStore } from "../stores/stageStream.js";
+import { useIntentGenerationStore } from "../stores/intentGeneration.js";
 
 /**
  * Mounted once at the app root. Forwards every STAGE_OUTLINE_STREAM
@@ -11,9 +12,11 @@ export function useStageStreamSubscription(): void {
   useEffect(() => {
     const u1 = api.stage.onOutlineStream((e) => useStageStreamStore.getState().applyEvent(e));
     const u2 = api.stage.onSlideRegenStream((e) => useStageStreamStore.getState().applyEvent(e));
+    const u3 = api.stage.onIntentStream((e) => useIntentGenerationStore.getState().applyEvent(e));
     return () => {
       u1();
       u2();
+      u3();
     };
   }, []);
 }

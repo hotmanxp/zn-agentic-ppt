@@ -5,6 +5,7 @@ import type {
   ChatWorkflowEvent,
 } from "../shared/types.js";
 import { IPC } from "../shared/ipc-channels.js";
+import type { IntentGenerateResponse, IntentStreamPayload } from "../shared/ipc-types.js";
 
 const api = {
   project: {
@@ -65,6 +66,10 @@ const api = {
     slideCancel: (id: string, slideId: string) =>
       ipcRenderer.invoke(IPC.STAGE_SLIDE_CANCEL, { id, slideId }),
     htmlCancel: (id: string) => ipcRenderer.invoke(IPC.STAGE_HTML_CANCEL, { id }),
+    intentGenerate: (id: string): Promise<IntentGenerateResponse> =>
+      ipcRenderer.invoke(IPC.STAGE_INTENT_GENERATE, { id }),
+    intentCancel: (id: string) => ipcRenderer.invoke(IPC.STAGE_INTENT_CANCEL, { id }),
+    onIntentStream: (cb: (e: IntentStreamPayload) => void) => subscribe(IPC.STAGE_INTENT_STREAM, cb),
   },
   brief: {
     optimize: (id: string, hint: any) =>
