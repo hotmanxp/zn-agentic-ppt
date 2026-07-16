@@ -97,7 +97,7 @@ export function ChatTimeline({
   onRemoveQueueItem: (queueId: string) => void;
 }) {
   return (
-    <div className="chat-timeline" aria-live="polite">
+    <div className="chat-timeline">
       {items.map((item) => {
         if (item.kind === "message") return <MessageRow key={item.id} item={item} />;
         if (item.kind === "tool") return <ChatToolCard key={item.id} item={item} />;

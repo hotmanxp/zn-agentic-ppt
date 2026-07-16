@@ -328,4 +328,22 @@ describe("ChatTimeline", () => {
     expect(html).toContain("重试");
     expect(html).toContain("移除");
   });
+
+  it("does not declare aria-live on the timeline root (parent already owns the live region)", () => {
+    const items: ChatTimelineItem[] = [userMessage("u1", "hi")];
+    const html = renderToStaticMarkup(
+      createElement(ChatTimeline, {
+        items,
+        onRetry: () => {},
+        onRemoveQueueItem: () => {},
+      }),
+    );
+    // ChatTimeline is rendered inside conversation-stream wrappers
+    // (Conversation / ClarificationFlow) that already declare
+    // aria-live="polite". Nesting a second live region is invalid and
+    // trips React's aria warnings.
+    expect(html).toMatch(/<div class="chat-timeline">/);
+    expect(html).not.toMatch(/<div class="chat-timeline"[^>]*aria-live/);
+    expect(html).not.toMatch(/<div class="chat-timeline"[^>]*role=/);
+  });
 });
