@@ -29,5 +29,8 @@ export function getCacheDir(): string {
 }
 
 export function getProjectDir(id: string): string {
+  if (process.env.ZN_AGENTIC_PPT_TEST_DATA_DIR) {
+    return join(process.env.ZN_AGENTIC_PPT_TEST_DATA_DIR, "projects", id);
+  }
   return join(getProjectsDir(), id);
 }
