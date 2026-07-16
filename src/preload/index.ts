@@ -1,4 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type {
+  ChatEvent,
+  ChatSnapshot,
+  ChatWorkflowEvent,
+} from "../shared/types.js";
 import { IPC } from "../shared/ipc-channels.js";
 
 const api = {
@@ -60,6 +65,35 @@ const api = {
     slideCancel: (id: string, slideId: string) =>
       ipcRenderer.invoke(IPC.STAGE_SLIDE_CANCEL, { id, slideId }),
     htmlCancel: (id: string) => ipcRenderer.invoke(IPC.STAGE_HTML_CANCEL, { id }),
+  },
+  brief: {
+    optimize: (id: string, hint: any) =>
+      ipcRenderer.invoke(IPC.STAGE_BRIEF_OPTIMIZE_START, { id, hint }),
+    cancel: () => ipcRenderer.invoke(IPC.STAGE_BRIEF_OPTIMIZE_CANCEL),
+    answer: (qid: string, value: any) =>
+      ipcRenderer.invoke(IPC.STAGE_BRIEF_OPTIMIZE_ANSWER, { qid, value }),
+    onAskUserQuestion: (cb: (e: any) => void) => subscribe(IPC.STAGE_ASK_USER_QUESTION, cb),
+    onDone: (cb: (e: any) => void) => subscribe(IPC.STAGE_BRIEF_OPTIMIZE_DONE, cb),
+    onError: (cb: (e: any) => void) => subscribe(IPC.STAGE_BRIEF_OPTIMIZE_ERROR, cb),
+  },
+  chat: {
+    load: (projectId: string): Promise<ChatSnapshot> =>
+      ipcRenderer.invoke(IPC.CHAT_LOAD, { projectId }),
+    send: (projectId: string, text: string): Promise<{ queueId: string }> =>
+      ipcRenderer.invoke(IPC.CHAT_SEND, { projectId, text }),
+    cancel: (projectId: string): Promise<{ ok: boolean }> =>
+      ipcRenderer.invoke(IPC.CHAT_CANCEL, { projectId }),
+    retry: (projectId: string, queueId: string): Promise<void> =>
+      ipcRenderer.invoke(IPC.CHAT_RETRY, { projectId, queueId }),
+    removeQueueItem: (projectId: string, queueId: string): Promise<void> =>
+      ipcRenderer.invoke(IPC.CHAT_REMOVE_QUEUE_ITEM, { projectId, queueId }),
+    appendWorkflow: (
+      projectId: string,
+      event: Omit<ChatWorkflowEvent, "id" | "projectId" | "createdAt">,
+    ): Promise<void> =>
+      ipcRenderer.invoke(IPC.CHAT_APPEND_WORKFLOW, { projectId, event }),
+    onEvent: (cb: (e: ChatEvent) => void): (() => void) =>
+      subscribe(IPC.CHAT_EVENT, cb),
   },
 };
 

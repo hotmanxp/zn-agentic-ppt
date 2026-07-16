@@ -118,3 +118,111 @@ export interface ProjectBrief {
   /** Raw markdown text returned by the LLM (or edited by the user). */
   markdown: string;
 }
+
+// ── Chat conversation types ──────────────────────────────────────────────────
+
+export type ChatQueueStatus =
+  | "queued"
+  | "submitted"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export interface ChatQueueItem {
+  id: string;
+  text: string;
+  status: ChatQueueStatus;
+  createdAt: number;
+  updatedAt: number;
+  transcriptUuid?: string;
+  error?: { code: string; message: string; retryable: boolean };
+}
+
+export type ChatWorkflowEventType =
+  | "project-created"
+  | "brief-confirmed"
+  | "sources-confirmed"
+  | "outline-ready"
+  | "outline-confirmed"
+  | "generation-started"
+  | "generation-completed"
+  | "generation-failed"
+  | "generation-cancelled"
+  | "revision-requested"
+  | "revision-completed";
+
+export interface ChatWorkflowEvent {
+  id: string;
+  projectId: string;
+  type: ChatWorkflowEventType;
+  createdAt: number;
+  payload: Record<string, unknown>;
+}
+
+export type ChatTimelineItem =
+  | {
+      kind: "message";
+      id: string;
+      projectId: string;
+      role: "user" | "assistant";
+      text: string;
+      createdAt: number;
+      queueId?: string;
+    }
+  | {
+      kind: "tool";
+      id: string;
+      projectId: string;
+      toolUseId: string;
+      name: string;
+      input: unknown;
+      output?: unknown;
+      status: "running" | "done" | "error" | "denied";
+      createdAt: number;
+      finishedAt?: number;
+    }
+  | { kind: "workflow"; event: ChatWorkflowEvent }
+  | { kind: "queue"; queue: ChatQueueItem };
+
+export interface ChatSnapshot {
+  projectId: string;
+  items: ChatTimelineItem[];
+  queue: ChatQueueItem[];
+  paused: boolean;
+  pauseReason?: string;
+}
+
+export type ChatEvent =
+  | { type: "snapshot"; projectId: string; snapshot: ChatSnapshot }
+  | { type: "assistant-delta"; projectId: string; queueId: string; text: string }
+  | {
+      type: "tool-start";
+      projectId: string;
+      queueId: string;
+      toolUseId: string;
+      name: string;
+      input: unknown;
+    }
+  | {
+      type: "tool-done";
+      projectId: string;
+      queueId: string;
+      toolUseId: string;
+      output: unknown;
+    }
+  | {
+      type: "tool-error";
+      projectId: string;
+      queueId: string;
+      toolUseId: string;
+      error: string;
+    }
+  | {
+      type: "queue-status";
+      projectId: string;
+      item: ChatQueueItem;
+      paused: boolean;
+      pauseReason?: string;
+    }
+  | { type: "project-changed"; projectId: string };
