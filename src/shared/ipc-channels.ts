@@ -38,6 +38,8 @@ export const IPC = {
   STAGE_SLIDE_REGENERATE: "stage:slide-regenerate",
   STAGE_HTML_GENERATE: "stage:html-generate",
   STAGE_STYLE_SAVE: "stage:style-save",
+  STAGE_INTENT_GENERATE: "stage:intent-generate",
+  STAGE_INTENT_CANCEL: "stage:intent-cancel",
 
   // Stage 1-4 cancellation (renderer → main, invoke)
   STAGE_OUTLINE_CANCEL: "stage:outline-cancel",
@@ -51,6 +53,7 @@ export const IPC = {
   STAGE_SLIDE_REGENERATE_STREAM: "stage:slide-regenerate-stream",
   STAGE_HTML_SLIDE_READY: "stage:html-slide-ready",
   STAGE_HTML_GENERATE_DONE: "stage:html-generate-done",
+  STAGE_INTENT_STREAM: "stage:intent-stream",
 
   // Stage 1 brief optimization (renderer → main, invoke)
   STAGE_BRIEF_OPTIMIZE_START: "stage:brief-optimize-start",

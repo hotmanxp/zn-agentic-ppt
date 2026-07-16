@@ -86,3 +86,23 @@ export interface UpdateProjectRequest {
 }
 
 export type { OutlineSlide, Outline, ProjectMeta, ProjectDetail, Settings, StyleSettings };
+
+export interface IntentGenerateRequest {
+  id: string;
+}
+
+export interface IntentGenerateResponse {
+  phase: "done" | "error" | "cancelled";
+  intent?: import("./intent.js").IntentSummary;
+  error?: { code: string; message: string };
+}
+
+export interface IntentStreamPayload {
+  runId: string;
+  projectId: string;
+  phase: "streaming" | "done" | "error" | "cancelled";
+  chars?: number;
+  durationMs?: number;
+  intent?: import("./intent.js").IntentSummary;
+  error?: { code: string; message: string };
+}
