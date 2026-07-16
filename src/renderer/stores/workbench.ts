@@ -16,6 +16,7 @@ import {
   type WorkbenchPhase,
 } from "../workbench/data/types.js";
 import { useChatStore } from "./chat.js";
+import { useIntentGenerationStore } from "./intentGeneration.js";
 import { useOutlineStore } from "./outline.js";
 import { usePptGenerationStore } from "./pptGeneration.js";
 import { useProjectDetailStore } from "./projectDetail.js";
@@ -326,7 +327,16 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       .appendWorkflow({ type: "generation-started", payload: { source: "approve-outline" } });
     // Phase transition to 'complete' / 'outline' (cancelled) / etc.
     // is driven by the Workbench watcher once pptGen reports its phase.
-    void usePptGenerationStore.getState().start(id);
+    void (async () => {
+      useIntentGenerationStore.getState().reset();
+      try {
+        await useIntentGenerationStore.getState().run(id);
+        await useStageStreamStore.getState().start("outline", id);
+        await usePptGenerationStore.getState().start(id);
+      } catch {
+        // intent store already set phase=error; GenerationProgressPanel will surface
+      }
+    })();
   },
 
   startRevision: async (id, text) => {

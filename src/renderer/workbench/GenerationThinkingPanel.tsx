@@ -15,11 +15,13 @@ export function GenerationThinkingPanel({
   activeIndex,
   progress,
   complete,
+  stepStates,
 }: {
   steps: ExecutionStep[];
   activeIndex: number;
   progress: number;
   complete: boolean;
+  stepStates?: Record<string, "pending" | "running" | "done" | "error">;
 }) {
   const [open, setOpen] = useState(!complete);
   const completedCount = steps.filter((_, i) => progress >= (i + 1) * 20).length;
@@ -68,8 +70,8 @@ export function GenerationThinkingPanel({
           <div className="run-log">
             {steps.map((item, index) => {
               const threshold = (index + 1) * 20;
-              const done = progress >= threshold;
-              const active = !done && index === activeIndex;
+              const done = stepStates?.[item.id] === "done" || progress >= threshold;
+              const active = stepStates?.[item.id] === "running" || (!done && index === activeIndex);
               return (
                 <div
                   className={`${done ? "is-done" : ""} ${active ? "is-active" : ""}`}

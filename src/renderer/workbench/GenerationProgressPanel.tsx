@@ -1,5 +1,7 @@
 import { ArrowClockwise, SpinnerGap, WarningCircle } from "@phosphor-icons/react";
+import { useIntentGenerationStore } from "../stores/intentGeneration.js";
 import { usePptGenerationStore } from "../stores/pptGeneration.js";
+import { useStageStreamStore } from "../stores/stageStream.js";
 import { useWorkbenchStore } from "../stores/workbench.js";
 import { GenerationThinkingPanel } from "./GenerationThinkingPanel.js";
 import { EXECUTION_STEPS } from "./data/executionSteps.js";
@@ -14,6 +16,28 @@ export function GenerationProgressPanel({ brief }: { brief: Brief }) {
   const slidesMap = usePptGenerationStore((s) => s.slides);
   const resetPpt = usePptGenerationStore((s) => s.reset);
   const approveOutline = useWorkbenchStore((s) => s.approveOutline);
+  const intentPhase = useIntentGenerationStore((s) => s.phase);
+  const intentError = useIntentGenerationStore((s) => s.lastError);
+  const outlinePhase = useStageStreamStore((s) => s.phase);
+  const stepStates: Record<string, "pending" | "running" | "done" | "error"> = {
+    intent:
+      intentPhase === "done" ? "done"
+      : intentPhase === "running" ? "running"
+      : intentPhase === "error" ? "error"
+      : "pending",
+    search: "pending",
+    outline:
+      outlinePhase === "streaming" ? "running"
+      : outlinePhase === "done" ? "done"
+      : outlinePhase === "error" ? "error"
+      : "pending",
+    compose:
+      phase === "running" ? "running"
+      : phase === "done" ? "done"
+      : phase === "error" ? "error"
+      : "pending",
+    verify: "pending",
+  };
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
   const activeIndex = Math.min(EXECUTION_STEPS.length - 1, Math.floor(progress / 20));
   const slideEntries = Object.values(slidesMap);
@@ -44,10 +68,11 @@ export function GenerationProgressPanel({ brief }: { brief: Brief }) {
         activeIndex={activeIndex}
         progress={progress}
         complete={isDone || isError}
+        stepStates={stepStates}
       />
-      {isError && lastError && (
+      {isError && (
         <pre className="artifact-progress-error" role="alert">
-          {lastError.split("\n").slice(0, 4).join("\n")}
+          {intentPhase === "error" ? `意图提炼失败：${intentError ?? ""}` : lastError?.split("\n").slice(0, 4).join("\n")}
         </pre>
       )}
       {isError && projectId && (
