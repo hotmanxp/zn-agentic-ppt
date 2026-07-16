@@ -1,19 +1,29 @@
 import { useEffect } from "react";
+import { api } from "../lib/api.js";
+import { useChatStore } from "../stores/chat.js";
+import { useProjectDetailStore } from "../stores/projectDetail.js";
 
 /**
- * Mounted at Workbench root. Previously subscribed to brief-agent events
- * so the AskUserQuestionModal could pick them up; the brief system has
- * been removed (the ClarificationComposer form now writes the brief
- * directly), so this hook is a no-op kept for symmetry with other
- * subscription hooks (`useStageStreamSubscription`, `useHtmlGenerationSubscription`).
+ * Mounted at Workbench root. Subscribes to chat push events
+ * (`api.chat.onEvent`) so the chat timeline reflects main-process
+ * state in real time and the project detail reloads whenever the
+ * backend signals a change for the currently open project.
  *
- * If new push-events are added later, the registration pattern from those
- * siblings is the right starting point.
+ * Sibling subscription hooks (`useStageStreamSubscription`,
+ * `useHtmlGenerationSubscription`) follow the same registration
+ * pattern.
  */
 export function useWorkbenchSubscriptions(): void {
   useEffect(() => {
-    return () => {
-      // no subscriptions to clean up
-    };
+    const unsubscribe = api.chat.onEvent((event) => {
+      useChatStore.getState().applyEvent(event);
+      if (
+        event.type === "project-changed" &&
+        event.projectId === useProjectDetailStore.getState().loadedProjectId
+      ) {
+        void useProjectDetailStore.getState().reload();
+      }
+    });
+    return unsubscribe;
   }, []);
 }

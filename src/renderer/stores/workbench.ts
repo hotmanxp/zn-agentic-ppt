@@ -15,6 +15,7 @@ import {
   type SourceItem,
   type WorkbenchPhase,
 } from "../workbench/data/types.js";
+import { useChatStore } from "./chat.js";
 import { useOutlineStore } from "./outline.js";
 import { usePptGenerationStore } from "./pptGeneration.js";
 import { useProjectDetailStore } from "./projectDetail.js";
@@ -163,6 +164,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       set({ toast: "项目不存在" });
       return;
     }
+    void useChatStore.getState().load(id);
     const phase = derivePhaseFromDetail(detail);
     const outlineDraft = detail.structuredOutline
       ? normalizeOutline(detail.structuredOutline.slides)
@@ -187,6 +189,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     useOutlineStore.getState().setOutline([], 0);
     usePptGenerationStore.getState().reset();
     useStageStreamStore.getState().reset();
+    useChatStore.getState().reset();
     set({
       phase: "idle",
       activeProjectId: null,
