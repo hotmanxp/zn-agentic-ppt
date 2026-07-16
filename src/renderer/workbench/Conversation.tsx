@@ -1,22 +1,18 @@
 import { CaretDown, CaretRight, MagnifyingGlass } from "@phosphor-icons/react";
 import { useState } from "react";
+import { useChatStore } from "../stores/chat.js";
 import { usePptGenerationStore } from "../stores/pptGeneration.js";
 import { useStageStreamStore } from "../stores/stageStream.js";
 import { useWorkbenchStore } from "../stores/workbench.js";
+import { ChatTimeline } from "./ChatTimeline.js";
 import { GenerationCard } from "./GenerationCard.js";
 import { OutlineApproval } from "./OutlineApproval.js";
 import { ProcessCard } from "./ProcessCard.js";
-import { CompletionCard } from "./completion/CompletionCard.js";
-import { RevisionMessage } from "./completion/RevisionMessage.js";
-import { SourceRequirementMessage } from "./completion/SourceRequirementMessage.js";
 import { OUTLINE_BUILD_STEPS } from "./data/outlineBuildSteps.js";
 import { SOURCE_SEARCH_STEPS } from "./data/sourceSearchSteps.js";
 import { KNOWN_SOURCES } from "./data/sources.js";
 import type { SourceItem } from "./data/types.js";
 import { AgentIdentity } from "./primitives/AgentIdentity.js";
-import { ConfirmedOutlineRecord } from "./primitives/ConfirmedOutlineRecord.js";
-import { ConfirmedSourcesRecord } from "./primitives/ConfirmedSourcesRecord.js";
-import { ConfirmedTaskRecord } from "./primitives/ConfirmedTaskRecord.js";
 import { UserMessage } from "./primitives/UserMessage.js";
 
 function SourceCall({
@@ -92,14 +88,11 @@ export function Conversation() {
   const taskText = useWorkbenchStore((s) => s.taskText);
   const scenario = useWorkbenchStore((s) => s.scenario);
   const brief = useWorkbenchStore((s) => s.brief);
-  const clarificationNotes = useWorkbenchStore((s) => s.clarificationNotes);
   const sourceRequirements = useWorkbenchStore((s) => s.sourceRequirements);
   const selectedSources = useWorkbenchStore((s) => s.selectedSources);
   const uploadedSources = useWorkbenchStore((s) => s.uploadedSources);
   const outlineDraft = useWorkbenchStore((s) => s.outlineDraft);
-  const revisions = useWorkbenchStore((s) => s.revisions);
   const deckVersions = useWorkbenchStore((s) => s.deckVersions);
-  const pendingRevisionId = useWorkbenchStore((s) => s.pendingRevisionId);
   const toggleSource = useWorkbenchStore((s) => s.toggleSource);
   const setActiveSource = useWorkbenchStore((s) => s.setActiveSource);
   const updateOutlineItem = useWorkbenchStore((s) => s.updateOutlineItem);
@@ -108,25 +101,18 @@ export function Conversation() {
   const moveOutlineItem = useWorkbenchStore((s) => s.moveOutlineItem);
   const openDeckPreview = useWorkbenchStore((s) => s.openDeckPreview);
   const searchProgress = useWorkbenchStore((s) => s.searchProgress);
-  const appendDeckVersion = (_revision?: string, _revisionId?: string) => {
-    // No-op stub kept for the onOpenDeck callback signature. Deck versions
-    // are seeded exclusively by the Workbench watcher on `pptGen === 'done'`.
-  };
 
   const sources: SourceItem[] = [...KNOWN_SOURCES, ...uploadedSources];
   const stageStream = useStageStreamStore();
   const pptGen = usePptGenerationStore();
 
-  const isAfterSources = [
-    "searching",
-    "sources",
-    "buildingOutline",
-    "outline",
-    "generating",
-    "complete",
-  ].includes(phase);
-  const isAfterOutline = ["buildingOutline", "outline", "generating", "complete"].includes(phase);
-  const isAfterGenerating = ["generating", "complete"].includes(phase);
+  // Chat store supplies the persisted timeline; the components below
+  // remain only for the still-active stages (searching / sources /
+  // buildingOutline / outline / generating) so the live card can stay
+  // interactive until completion is recorded by a workflow event.
+  const chatItems = useChatStore((s) => s.items);
+  const retryQueueItem = useChatStore((s) => s.retry);
+  const removeQueueItem = useChatStore((s) => s.removeQueueItem);
 
   // Progress for the outline generation. Previously this was capped
   // at 75% to leave room for the slide-generation phase (which used
@@ -144,7 +130,11 @@ export function Conversation() {
   return (
     <div className="conversation-stream" aria-live="polite">
       <UserMessage text={taskText} />
-      {isAfterSources && <ConfirmedTaskRecord scenario={scenario} brief={brief} />}
+      <ChatTimeline
+        items={chatItems}
+        onRetry={retryQueueItem}
+        onRemoveQueueItem={removeQueueItem}
+      />
 
       {phase === "searching" && (
         <article className="message-row is-agent">
@@ -164,11 +154,6 @@ export function Conversation() {
         <article className="message-row is-agent">
           <AgentIdentity />
           <div className="agent-message">
-            <p>
-              {scenario.id === "launch"
-                ? "我先找到了可用资料。已优先选择版本较新、权限可用、适合发布会表达的内容；你上传的材料只用于本次生成。请确认本次采用哪些资料，确认后我再生成大纲。"
-                : "我先找到了可用资料。已优先选择版本较新、权限可用、适合对客户展示的内容；你上传的材料只用于本次生成。请确认本次采用哪些资料，确认后我再生成大纲。"}
-            </p>
             <SourceCall
               sources={sources}
               selectedSources={selectedSources}
@@ -177,19 +162,6 @@ export function Conversation() {
             />
           </div>
         </article>
-      )}
-
-      {sourceRequirements.map((req, i) => (
-        <SourceRequirementMessage key={`${req}-${i}`} text={req} />
-      ))}
-
-      {isAfterSources && (
-        <ConfirmedSourcesRecord
-          sources={sources}
-          selectedSources={selectedSources}
-          sourceRequirements={sourceRequirements}
-          onOpenSource={setActiveSource}
-        />
       )}
 
       {phase === "buildingOutline" && (
@@ -210,10 +182,6 @@ export function Conversation() {
         <article className="message-row is-agent">
           <AgentIdentity />
           <div className="agent-message">
-            <p>
-              资料已确认。我按金字塔思维整理了一版大纲：先给出核心结论，再展开业务问题、验证路径、能力与案例，最后收束到下一步建议。请确认结构后再生成完整
-              PPT。
-            </p>
             <OutlineApproval
               brief={brief}
               outlineItems={outlineDraft}
@@ -226,56 +194,39 @@ export function Conversation() {
         </article>
       )}
 
-      {isAfterOutline && <ConfirmedOutlineRecord outlineItems={outlineDraft} />}
-
-      {isAfterGenerating && (
+      {phase === "generating" && (
         <article className="message-row is-agent">
           <AgentIdentity />
           <div className="agent-message">
-            {phase === "generating" && (
-              <GenerationCard
-                progress={
-                  pptGen.total > 0 ? Math.round((pptGen.completed / pptGen.total) * 100) : 0
-                }
-                brief={brief}
-              />
-            )}
-            {deckVersions.map((v, idx) => (
-              <CompletionCard
-                key={v.id}
-                brief={brief}
-                scenario={scenario}
-                version={v}
-                versionNumber={idx + 1}
-                isLatest={idx === deckVersions.length - 1}
-                onOpenDeck={() => {
-                  appendDeckVersion(v.revision, v.revisionId);
-                  openDeckPreview();
-                }}
-              />
-            ))}
+            <GenerationCard
+              progress={
+                pptGen.total > 0 ? Math.round((pptGen.completed / pptGen.total) * 100) : 0
+              }
+              brief={brief}
+            />
           </div>
         </article>
       )}
 
-      {revisions.map((revision, index) => (
-        <div className="revision-thread" key={revision.id || `${revision.text}-${index}`}>
-          <RevisionMessage revision={revision} />
-          {phase === "generating" && pendingRevisionId === revision.id && (
-            <article className="message-row is-agent">
-              <AgentIdentity />
-              <div className="agent-message">
-                <GenerationCard
-                  progress={
-                    pptGen.total > 0 ? Math.round((pptGen.completed / pptGen.total) * 100) : 0
-                  }
-                  brief={brief}
-                />
-              </div>
-            </article>
-          )}
-        </div>
-      ))}
+      {/* Completed deck versions remain here only when the chat
+          timeline has not yet received a generation-completed event
+          (legacy stores seeded by the watcher). Once the workflow
+          event lands, the CompletionCard comes from the timeline. */}
+      {phase === "complete" && deckVersions.length > 0 && (
+        <article className="message-row is-agent">
+          <AgentIdentity />
+          <div className="agent-message">
+            <button
+              type="button"
+              className="primary-action"
+              onClick={openDeckPreview}
+              aria-label="预览最新演示稿"
+            >
+              预览演示稿
+            </button>
+          </div>
+        </article>
+      )}
     </div>
   );
 }

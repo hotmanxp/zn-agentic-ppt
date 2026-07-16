@@ -30,7 +30,6 @@ export function Workbench() {
   const phase = useWorkbenchStore((s) => s.phase);
   const setPhase = useWorkbenchStore((s) => s.setPhase);
   const scenario = useWorkbenchStore((s) => s.scenario);
-  const clarificationNotes = useWorkbenchStore((s) => s.clarificationNotes);
   const artifactOpen = useWorkbenchStore((s) => s.artifactOpen);
   const deckPreviewOpen = useWorkbenchStore((s) => s.deckPreviewOpen);
   const deckPreviewRatio = useWorkbenchStore((s) => s.deckPreviewRatio);
@@ -154,9 +153,7 @@ export function Workbench() {
           ) : (
             <>
               {phase === "idle" && <WelcomeStage onQuickStart={handleQuickStart} />}
-              {phase === "clarify" && (
-                <ClarificationFlow scenario={scenario} notes={clarificationNotes} />
-              )}
+              {phase === "clarify" && <ClarificationFlow scenario={scenario} />}
               {phase !== "idle" && phase !== "clarify" && <Conversation />}
             </>
           )}
