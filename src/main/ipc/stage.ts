@@ -3,7 +3,13 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { BrowserWindow, ipcMain } from "electron";
 import { IPC } from "../../shared/ipc-channels.js";
+import { intentSchema } from "../../shared/intent.js";
+import type {
+  IntentGenerateRequest,
+  IntentGenerateResponse,
+} from "../../shared/ipc-types.js";
 import type { OutlineSlide, ProjectBrief, StyleSettings } from "../../shared/types.js";
+import { readIntent, writeIntent } from "../fs/intent.js";
 import * as outlineFs from "../fs/outline.js";
 import { getProjectDir } from "../fs/paths.js";
 import * as projectFs from "../fs/projects.js";
@@ -24,6 +30,75 @@ import { runOrchestrator } from "../sdk/ppt-orchestrator.js";
 import { registry } from "./stage-stream-registry.js";
 
 const pptHtmlCancels = new Map<string, AbortController>();
+
+export async function generateIntent(id: string): Promise<IntentGenerateResponse> {
+  const project = await projectFs.getProject(id);
+  if (!project) throw new Error("project not found");
+  const brief = project.brief;
+  if (!brief?.markdown) {
+    throw new Error("请先在第一阶段填写项目信息（主题/听众/目标/时长/页数）");
+  }
+  const settings = await settingsFs.getSettings();
+  const cwd = getProjectDir(id);
+  const key = `intent:${id}`;
+  let buffer = "";
+
+  const runner = new GenerationRunner({
+    cwd,
+    topic: project.topic,
+    outline: brief.markdown,
+    settings,
+    runId: id,
+    systemPrompt: await renderPrompt("INTENTION_PROMPT", { briefMarkdown: brief.markdown }),
+    userMessage: "请基于以上 brief 提炼结构化意图。",
+    onEvent: () => {},
+    onProgress: (info) =>
+      broadcast(IPC.STAGE_INTENT_STREAM, {
+        runId: key,
+        projectId: id,
+        phase: "streaming",
+        chars: info.current,
+      }),
+    onDone: ({ html, durationMs }) => {
+      buffer = html;
+      broadcast(IPC.STAGE_INTENT_STREAM, {
+        runId: key,
+        projectId: id,
+        phase: "done",
+        chars: html.length,
+        durationMs,
+      });
+      registry.unregister(key);
+    },
+    onError: ({ error }) => {
+      const phase = registry.isCancelled(key) ? "cancelled" : "error";
+      broadcast(IPC.STAGE_INTENT_STREAM, { runId: key, projectId: id, phase, error });
+      registry.unregister(key);
+      if (phase === "error") throw new Error(error.message);
+    },
+  });
+  registry.register(key, runner, "intent");
+  await runner.run();
+  if (registry.isCancelled(key)) return { phase: "cancelled" };
+
+  let parsed: unknown;
+  try {
+    parsed = extractFirstJsonValue(buffer);
+  } catch (e: any) {
+    console.log(`[intent:${id}] JSON extraction failed: ${e?.message ?? e}`);
+    console.log(`[intent:${id}] LLM buffer (first 800 chars): ${buffer.slice(0, 800)}`);
+    throw new Error("LLM 未返回有效 JSON");
+  }
+  let intent;
+  try {
+    intent = intentSchema.parse(parsed);
+  } catch (e: any) {
+    console.log(`[intent:${id}] schema validation failed: ${e?.message ?? e}`);
+    throw new Error(`意图提炼结果不符合 schema: ${e?.message ?? e}`);
+  }
+  await writeIntent(id, intent);
+  return { phase: "done", intent };
+}
 
 async function loadSettingsAndOutline(id: string) {
   const settings = await settingsFs.getSettings();
@@ -78,6 +153,9 @@ export function registerStageIPC() {
     const settings = await settingsFs.getSettings();
     const cwd = getProjectDir(id);
     const key = id;
+    const rawIntent = await readIntent(id);
+    if (!rawIntent) throw new Error("意图未生成，请先重试生成（intent 未持久化）");
+    const intent = intentSchema.parse(rawIntent);
     let buffer = "";
     const runner = new GenerationRunner({
       cwd,
@@ -87,6 +165,7 @@ export function registerStageIPC() {
       runId: id,
       systemPrompt: await renderPrompt("OUTLINE_PROMPT", {
         briefMarkdown: brief.markdown,
+        intentJson: intent,
       }),
       userMessage: "请根据以上指令生成大纲。",
       onEvent: () => {},
@@ -153,6 +232,15 @@ export function registerStageIPC() {
     }
     await outlineFs.writeOutline(id, { slides: parsed.slides, generatedAt: Date.now() });
     return { phase: "done" as const, slides: parsed.slides };
+  });
+
+  ipcMain.handle(IPC.STAGE_INTENT_GENERATE, async (_, { id }: IntentGenerateRequest) => {
+    return generateIntent(id);
+  });
+
+  ipcMain.handle(IPC.STAGE_INTENT_CANCEL, async (_, { id }: { id: string }) => {
+    registry.cancel(`intent:${id}`);
+    return { ok: true };
   });
 
   ipcMain.handle(

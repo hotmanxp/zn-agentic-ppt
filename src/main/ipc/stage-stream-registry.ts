@@ -1,6 +1,6 @@
 import type { GenerationRunner } from "../sdk/runner.js";
 
-export type StreamKind = "outline" | "slide-regen";
+export type StreamKind = "outline" | "slide-regen" | "intent";
 
 interface ActiveRun {
   runner: GenerationRunner;

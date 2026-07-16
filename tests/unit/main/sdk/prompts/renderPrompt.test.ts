@@ -16,6 +16,7 @@ describe("renderPrompt", () => {
     mockGetPromptOverride.mockResolvedValue(null);
     const out = await renderPrompt("OUTLINE_PROMPT", {
       briefMarkdown: "# X\n\n## 演讲对象和场景\nY",
+      intentJson: { tone: "professional" },
     });
     expect(out).toContain("X");
     expect(out).toContain("Y");

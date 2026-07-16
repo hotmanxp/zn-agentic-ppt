@@ -37,6 +37,9 @@ export const outlinePrompt: PromptSpec = {
 - N = 4 ~ 8 张
 - 从 brief 的「演讲时长」字段推断页数(每 1.5 分钟 1 页,clamp 3-60)
 
+【意图理解 (structured grounding — 使用其提炼出的约束、角度、覆盖点；不要重复 brief 已陈述的事实)】
+{{intentJson}}
+
 输出 JSON 格式(不要解释,直接输出):
 {
   "globalStyle": {
@@ -59,6 +62,11 @@ export const outlinePrompt: PromptSpec = {
       description: "项目 brief 完整 markdown 文本",
       type: "string",
       example: "# AI 在教育中的应用\n\n## 演讲对象和场景\n中学老师\n...",
+    },
+    {
+      name: "intentJson",
+      type: "json",
+      description: "IntentSummary 对象",
     },
   ],
 };
