@@ -1,11 +1,11 @@
 import { ArrowClockwise, SpinnerGap, WarningCircle } from "@phosphor-icons/react";
 import { useIntentGenerationStore } from "../stores/intentGeneration.js";
 import { usePptGenerationStore } from "../stores/pptGeneration.js";
-import { useStageStreamStore } from "../stores/stageStream.js";
 import { useWorkbenchStore } from "../stores/workbench.js";
 import { GenerationThinkingPanel } from "./GenerationThinkingPanel.js";
 import { EXECUTION_STEPS } from "./data/executionSteps.js";
 import type { Brief } from "./data/types.js";
+import { useGenerationStepStates } from "./useGenerationStepStates.js";
 export function GenerationProgressPanel({ brief }: { brief: Brief }) {
   const total = usePptGenerationStore((s) => s.total);
   const completed = usePptGenerationStore((s) => s.completed);
@@ -18,26 +18,7 @@ export function GenerationProgressPanel({ brief }: { brief: Brief }) {
   const approveOutline = useWorkbenchStore((s) => s.approveOutline);
   const intentPhase = useIntentGenerationStore((s) => s.phase);
   const intentError = useIntentGenerationStore((s) => s.lastError);
-  const outlinePhase = useStageStreamStore((s) => s.phase);
-  const stepStates: Record<string, "pending" | "running" | "done" | "error"> = {
-    intent:
-      intentPhase === "done" ? "done"
-      : intentPhase === "running" ? "running"
-      : intentPhase === "error" ? "error"
-      : "pending",
-    search: "pending",
-    outline:
-      outlinePhase === "streaming" ? "running"
-      : outlinePhase === "done" ? "done"
-      : outlinePhase === "error" ? "error"
-      : "pending",
-    compose:
-      phase === "running" ? "running"
-      : phase === "done" ? "done"
-      : phase === "error" ? "error"
-      : "pending",
-    verify: "pending",
-  };
+  const stepStates = useGenerationStepStates();
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
   const activeIndex = Math.min(EXECUTION_STEPS.length - 1, Math.floor(progress / 20));
   const slideEntries = Object.values(slidesMap);
