@@ -2,6 +2,7 @@ import { ipcMain, shell } from "electron";
 import { IPC } from "../../shared/ipc-channels.js";
 import { getProjectDir } from "../fs/paths.js";
 import * as fs from "../fs/projects.js";
+import { getChatService } from "./chat.js";
 
 export function registerProjectIPC(): void {
   ipcMain.handle(IPC.PROJECT_LIST, () => fs.listProjects());
@@ -12,6 +13,7 @@ export function registerProjectIPC(): void {
     fs.updateProject(id, patch),
   );
   ipcMain.handle(IPC.PROJECT_DELETE, async (_, { id }: { id: string }) => {
+    await getChatService().removeProject(id);
     await fs.deleteProject(id);
   });
   ipcMain.handle(IPC.PROJECT_DUPLICATE, async (_, { id }: { id: string }) => {

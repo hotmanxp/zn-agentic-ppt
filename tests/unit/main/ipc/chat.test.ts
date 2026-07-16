@@ -8,6 +8,7 @@ import type {
   ProjectDetail,
   Settings,
 } from "../../../../src/shared/types.js";
+import { IPC } from "../../../../src/shared/ipc-channels.js";
 
 const handlers = new Map<string, Function>();
 vi.mock("electron", () => ({
@@ -584,5 +585,57 @@ describe("IPC registration", () => {
 
   it("registerChatIPC does not throw", () => {
     expect(() => registerChatIPC()).not.toThrow();
+  });
+});
+
+describe("project cleanup on delete", () => {
+  let projectsDir: string;
+  let dataRoot: string;
+
+  beforeEach(async () => {
+    handlers.clear();
+    projectsDir = await mkdtemp(join(tmpdir(), "chat-cleanup-projects-"));
+    dataRoot = "/tmp/unused";
+    await mkdir(join(dataRoot, "transcripts"), { recursive: true });
+
+    // Pre-create two project directories + their conversation.json
+    await mkdir(join(projectsDir, "p-1"), { recursive: true });
+    await mkdir(join(projectsDir, "p-2"), { recursive: true });
+    await writeFile(join(projectsDir, "p-1", "conversation.json"), "{}");
+    await writeFile(join(projectsDir, "p-2", "conversation.json"), "{}");
+
+    // Pre-create two transcripts in the chat service's dataRoot
+    await writeFile(join(dataRoot, "transcripts", "ppt-p-1.json"), "{}");
+    await writeFile(join(dataRoot, "transcripts", "ppt-p-2.json"), "{}");
+
+    // Make projects live where our test expects
+    const { setProjectsDirForTest } = await import("../../../../src/main/fs/paths.js");
+    setProjectsDirForTest(projectsDir);
+  });
+
+  afterEach(async () => {
+    await rm(projectsDir, { recursive: true, force: true });
+    await rm(join(dataRoot, "transcripts", "ppt-p-1.json"), { force: true });
+    await rm(join(dataRoot, "transcripts", "ppt-p-2.json"), { force: true });
+  });
+
+  it("delete handler removes only the targeted project's transcript and conversation.json", async () => {
+    const { registerProjectIPC } = await import("../../../../src/main/ipc/project.js");
+    registerProjectIPC();
+
+    const handler = handlers.get(IPC.PROJECT_DELETE);
+    expect(handler).toBeDefined();
+    await handler({}, { id: "p-1" });
+
+    const transcriptPath = (id: string) => join(dataRoot, "transcripts", `ppt-${id}.json`);
+    const projectExists = async (id: string) =>
+      readFile(join(projectsDir, id, "conversation.json"), "utf8")
+        .then(() => true)
+        .catch(() => false);
+
+    expect(await readFile(transcriptPath("p-1"), "utf8").then(() => true).catch(() => false)).toBe(false);
+    expect(await projectExists("p-1")).toBe(false);
+    expect(await readFile(transcriptPath("p-2"), "utf8").then(() => true).catch(() => false)).toBe(true);
+    expect(await projectExists("p-2")).toBe(true);
   });
 });
