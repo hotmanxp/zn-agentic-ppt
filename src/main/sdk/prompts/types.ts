@@ -12,7 +12,8 @@ export type PromptId =
   | "OUTLINE_PROMPT"
   | "REGENERATE_PROMPT"
   | "SLIDE_SYSTEM_PROMPT"
-  | "SLIDE_USER_PROMPT";
+  | "SLIDE_USER_PROMPT"
+  | "INTENTION_PROMPT";
 
 export interface PromptSpec {
   id: PromptId;

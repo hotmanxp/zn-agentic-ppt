@@ -40,6 +40,6 @@ describe("renderPrompt", () => {
 
   it("getSpec returns registered spec", () => {
     expect(getSpec("OUTLINE_PROMPT")).not.toBeNull();
-    expect(PROMPT_SPECS.length).toBe(4);
+    expect(PROMPT_SPECS.length).toBe(5);
   });
 });
