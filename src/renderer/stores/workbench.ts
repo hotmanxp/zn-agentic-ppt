@@ -333,8 +333,17 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         await useIntentGenerationStore.getState().run(id);
         await useStageStreamStore.getState().start("outline", id);
         await usePptGenerationStore.getState().start(id);
-      } catch {
-        // intent store already set phase=error; GenerationProgressPanel will surface
+      } catch (err) {
+        // intent store already set phase=error, but pptGen.phase stayed at
+        // "idle" (was reset above) so GenerationProgressPanel's
+        // isError = phase === "error" never fires. Surface the error so the
+        // user sees the failure card instead of a perpetual spinner.
+        const msg = err instanceof Error ? err.message : String(err);
+        set({ phase: "outline", toast: `意图提炼失败：${msg}` });
+        await useChatStore.getState().appendWorkflow({
+          type: "generation-failed",
+          payload: { error: msg, stage: "intent" },
+        });
       }
     })();
   },

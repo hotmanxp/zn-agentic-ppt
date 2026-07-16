@@ -23,7 +23,7 @@ export function GenerationProgressPanel({ brief }: { brief: Brief }) {
   const activeIndex = Math.min(EXECUTION_STEPS.length - 1, Math.floor(progress / 20));
   const slideEntries = Object.values(slidesMap);
   const isDone = phase === "done";
-  const isError = phase === "error";
+  const isError = phase === "error" || intentPhase === "error";
   return (
     <div className="artifact-progress" data-phase={phase}>
       <div className="generation-topline">
