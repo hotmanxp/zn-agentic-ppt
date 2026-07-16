@@ -10,7 +10,6 @@ import type {
   StyleSettings,
 } from "@shared/types";
 import type { IntentGenerateResponse, IntentStreamPayload } from "../../shared/ipc-types.js";
-import type { IntentSummary } from "../../shared/intent.js";
 
 export type { OutlineSlide };
 
