@@ -39,6 +39,12 @@ export function ClarificationComposer({ scenario }: { scenario: Scenario }) {
     void state.confirmBrief(id);
   };
 
+  const sendBackground = async () => {
+    const next = prompt.trim();
+    if (!next) return;
+    await useWorkbenchStore.getState().submitPrompt(next);
+  };
+
   return (
     <div className="clarification-composer-wrap">
       <div className="clarification-card clarification-composer">
@@ -128,6 +134,14 @@ export function ClarificationComposer({ scenario }: { scenario: Scenario }) {
             placeholder={copy.naturalPlaceholder}
             rows={2}
           />
+          <button
+            type="button"
+            className="secondary-action"
+            disabled={!prompt.trim()}
+            onClick={sendBackground}
+          >
+            发送补充背景
+          </button>
         </div>
         <div className="clarification-footer">
           <div>

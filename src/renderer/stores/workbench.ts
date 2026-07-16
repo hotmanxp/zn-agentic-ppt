@@ -19,6 +19,7 @@ import { useChatStore } from "./chat.js";
 import { useOutlineStore } from "./outline.js";
 import { usePptGenerationStore } from "./pptGeneration.js";
 import { useProjectDetailStore } from "./projectDetail.js";
+import { useProjectStore } from "./project.js";
 import { useStageStreamStore } from "./stageStream.js";
 
 export type ArtifactTab = "deck" | "sources" | "task";
@@ -80,6 +81,10 @@ interface WorkbenchState {
 
   setPrompt: (v: string) => void;
   submitPrompt: (text: string) => Promise<void>;
+  /** Internal: route a user message into the chat queue so the LLM sees
+   * every input (even when phases are busy and the legacy dispatch is a
+   * no-op). Returns the queueId on success, null on failure. */
+  sendChatMessage: (text: string) => Promise<string | null>;
 
   setActiveSource: (id: string | null) => void;
   setSelectedSlide: (idx: number) => void;
@@ -256,6 +261,9 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     });
     const briefPayload: ProjectBrief = { markdown: payload };
     await api.stage.collectSave(id, summary, JSON.stringify(selectedSources), briefPayload);
+    await useChatStore
+      .getState()
+      .appendWorkflow({ type: "brief-confirmed", payload: { summary } });
     set({
       taskText: summary,
       artifactTab: "sources",
@@ -265,6 +273,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   },
 
   approveSources: async (id) => {
+    const { selectedSources, sourceRequirements } = get();
     set({ phase: "buildingOutline" });
     // We do NOT pre-call stageStream.reset() here — the events for this
     // IPC call are already in flight (the IPC fires STAGE_OUTLINE_STREAM
@@ -277,15 +286,25 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     useStageStreamStore.getState().prepare("outline", id);
     const r = await api.stage.outlineGenerate(id);
     const slides = r.phase === "done" ? r.slides : [];
+    await useChatStore.getState().appendWorkflow({
+      type: "sources-confirmed",
+      payload: { sourceIds: selectedSources, requirements: sourceRequirements },
+    });
     set({
       outlineDraft: normalizeOutline(slides),
       artifactTab: "deck",
       phase: slides.length > 0 ? "outline" : "buildingOutline",
     });
     void useOutlineStore.getState().setOutline(slides, Date.now());
+    if (slides.length > 0) {
+      await useChatStore
+        .getState()
+        .appendWorkflow({ type: "outline-ready", payload: { slideCount: slides.length } });
+    }
   },
 
   approveOutline: async (id) => {
+    const outlineCount = get().outlineDraft.length;
     usePptGenerationStore.getState().reset();
     // Seed total/slide skeleton BEFORE start() so GenerationCard has a
     // non-zero denominator from the first frame. Without this the user
@@ -298,6 +317,13 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       pendingRevisionId: null,
       artifactTab: "deck",
     });
+    await useChatStore.getState().appendWorkflow({
+      type: "outline-confirmed",
+      payload: { slideCount: outlineCount },
+    });
+    await useChatStore
+      .getState()
+      .appendWorkflow({ type: "generation-started", payload: { source: "approve-outline" } });
     // Phase transition to 'complete' / 'outline' (cancelled) / etc.
     // is driven by the Workbench watcher once pptGen reports its phase.
     void usePptGenerationStore.getState().start(id);
@@ -316,6 +342,12 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       artifactTab: "deck",
       toast: "已按修改建议重新生成 PPT",
     }));
+    await useChatStore
+      .getState()
+      .appendWorkflow({ type: "revision-requested", payload: { revisionId, text } });
+    await useChatStore
+      .getState()
+      .appendWorkflow({ type: "generation-started", payload: { source: "revision" } });
     await usePptGenerationStore.getState().start(id);
   },
 
@@ -418,7 +450,10 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   setPrompt: (v) => set({ prompt: v }),
 
   submitPrompt: async (text) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
     const { phase, activeProjectId } = get();
+
     if (phase === "idle") {
       const scenario: Scenario = {
         ...SCENARIOS[0],
@@ -426,41 +461,60 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         name: "自定义演示",
       };
       await get().beginClarification(scenario);
+      const project = await api.project.create(trimmed);
+      await useProjectStore.getState().load();
+      await get().openProject(project.id);
+      await useChatStore
+        .getState()
+        .appendWorkflow({ type: "project-created", payload: { topic: trimmed } });
+      const queueId = await get().sendChatMessage(trimmed);
+      if (queueId) set({ prompt: "" });
       return;
     }
-    if (!activeProjectId || !text) return;
+
+    if (!activeProjectId) return;
+
+    if (phase === "searching" || phase === "buildingOutline" || phase === "generating") {
+      // Busy: the business generator is already running. Don't enqueue a
+      // duplicate chat message — the composer UI is already replaced by
+      // the busy/cancel card.
+      return;
+    }
+
     if (phase === "clarify") {
       const { scenario } = get();
       const patch: Partial<Brief> = {};
       const isInternal = scenario.id === "internal";
       const isLaunch = scenario.id === "launch";
       const clientMatch = isInternal
-        ? text.match(/(?:主题|汇报主题|事项|汇报事项)(?:是|为|：|:)\s*([^，,。；;]+)/) ||
-          text.match(
+        ? trimmed.match(/(?:主题|汇报主题|事项|汇报事项)(?:是|为|：|:)\s*([^，,。；;]+)/) ||
+          trimmed.match(
             /([^，,。；;]{2,30}(?:年度|季度|月度|工作汇报|经营复盘|项目复盘|阶段总结)[^，,。；;]*)/,
           )
         : isLaunch
-          ? text.match(/(?:发布主题|主题|发布|新品)(?:是|为|：|:)?\s*([^，,。；;]+)/) ||
-            text.match(
+          ? trimmed.match(/(?:发布主题|主题|发布|新品)(?:是|为|：|:)?\s*([^，,。；;]+)/) ||
+            trimmed.match(
               /([^，,。；;]{2,30}(?:AI陪练|AI 陪练|AI知识库|AI 知识库|AI培训专家|AI 培训专家|新品发布|产品发布)[^，,。；;]*)/,
             )
-          : text.match(/客户(?:是|为|：|:)\s*([^，,。；;]+)/) ||
-            text.match(/([^，,。；;]{2,24}(?:银行|公司|集团|事业部))/);
+          : trimmed.match(/客户(?:是|为|：|:)\s*([^，,。；;]+)/) ||
+            trimmed.match(/([^，,。；;]{2,24}(?:银行|公司|集团|事业部))/);
       const audienceMatch = isInternal
-        ? text.match(/(?:汇报对象|对象|面向)(?:是|为|：|:)?\s*([^，,。；;]+)/)
-        : text.match(/(?:听众|面向)(?:是|为|：|:)?\s*([^，,。；;]+)/);
-      const goalMatch = text.match(/目标(?:是|为|：|:)\s*([^。；;]+)/);
-      const durationMatch = text.match(/(\d+)\s*分钟/);
-      const pagesMatch = text.match(/(\d+)\s*页/);
+        ? trimmed.match(/(?:汇报对象|对象|面向)(?:是|为|：|:)?\s*([^，,。；;]+)/)
+        : trimmed.match(/(?:听众|面向)(?:是|为|：|:)?\s*([^，,。；;]+)/);
+      const goalMatch = trimmed.match(/目标(?:是|为|：|:)\s*([^。；;]+)/);
+      const durationMatch = trimmed.match(/(\d+)\s*分钟/);
+      const pagesMatch = trimmed.match(/(\d+)\s*页/);
       if (clientMatch) patch.client = clientMatch[1].trim();
       if (audienceMatch) patch.audience = audienceMatch[1].trim();
       if (goalMatch) patch.goal = goalMatch[1].trim();
       if (durationMatch) patch.duration = `${durationMatch[1]} 分钟`;
       if (pagesMatch) patch.pages = `${pagesMatch[1]} 页`;
       const recognizedCount = Object.keys(patch).length;
+      const queueId = await get().sendChatMessage(trimmed);
+      if (!queueId) return;
       set((s) => ({
         brief: { ...s.brief, ...patch },
-        clarificationNotes: [...s.clarificationNotes, text],
+        clarificationNotes: [...s.clarificationNotes, trimmed],
         prompt: "",
         toast: recognizedCount
           ? `已识别并回填 ${recognizedCount} 项任务信息`
@@ -468,23 +522,62 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       }));
       return;
     }
+
     if (phase === "sources") {
+      const queueId = await get().sendChatMessage(trimmed);
+      if (!queueId) return;
       set((s) => ({
-        sourceRequirements: [...s.sourceRequirements, text],
+        sourceRequirements: [...s.sourceRequirements, trimmed],
         prompt: "",
         toast: "资料要求已记录，将用于生成大纲",
       }));
       return;
     }
-    if (phase === "complete") {
-      await get().startRevision(activeProjectId, text);
+
+    if (phase === "outline") {
+      const queueId = await get().sendChatMessage(trimmed);
+      if (!queueId) return;
+      set((s) => ({
+        revisions: [...s.revisions, { id: `note-${Date.now()}`, text: trimmed }],
+        prompt: "",
+        toast: "修改要求已记录，待确认后重新生成",
+      }));
       return;
     }
-    set((s) => ({
-      revisions: [...s.revisions, { id: `note-${Date.now()}`, text }],
-      prompt: "",
-      toast: "修改要求已同步到演示稿",
-    }));
+
+    if (phase === "complete") {
+      // Send the free-form message to chat (so the agent can react even
+      // outside of formal revisions), then explicitly record the user's
+      // revision intent as a workflow event. We do NOT auto-start a
+      // generation run — the user must click "按修改要求重新生成" to
+      // commit the change through `startRevision`.
+      const queueId = await get().sendChatMessage(trimmed);
+      if (!queueId) return;
+      const revisionId = `revision-${Date.now()}`;
+      await useChatStore.getState().appendWorkflow({
+        type: "revision-requested",
+        payload: { revisionId, text: trimmed },
+      });
+      set((s) => ({
+        revisions: [...s.revisions, { id: revisionId, text: trimmed }],
+        prompt: "",
+        toast: "修改要求已发送给 Agent，可在大纲确认后重生成",
+      }));
+      return;
+    }
+  },
+
+  sendChatMessage: async (text) => {
+    const projectId = get().activeProjectId;
+    if (!projectId) return null;
+    try {
+      const r = await api.chat.send(projectId, text);
+      return r.queueId;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      set({ toast: msg });
+      return null;
+    }
   },
 
   setActiveSource: (id) => set({ activeSourceId: id, deckPreviewOpen: false }),
