@@ -7,7 +7,6 @@ import { IPC } from "../../shared/ipc-channels.js";
 import type {
   ChatEvent,
   ChatQueueItem,
-  ChatQueueStatus,
   ChatSnapshot,
   ChatTimelineItem,
   ChatWorkflowEvent,
@@ -18,6 +17,11 @@ import type {
 import * as projectFs from "../fs/projects.js";
 import { getProjectDir } from "../fs/paths.js";
 import * as settingsFs from "../fs/settings.js";
+import { BRIDGE_TOOLS, createModelCaller } from "../sdk/zai-bridge.js";
+import { DefaultAgentRuntime } from "../sdk/zai-agent-core/runtime/contract.js";
+import type { QueryOptions, RuntimeConfig } from "../sdk/zai-agent-core/runtime/types.js";
+import type { RuntimeEvent } from "../sdk/zai-agent-core/runtime/events.js";
+import type { Tool } from "../sdk/zai-agent-core/tools/Tool.js";
 
 export const CHAT_TRANSCRIPT_PREFIX = "ppt-";
 
@@ -136,15 +140,10 @@ export class TranscriptStore {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Bridge tools — empty placeholder for now. Tools register through additionalTools
-// parameter on runtime.run, but the local stub runtime ignores it.
-// ──────────────────────────────────────────────────────────────────────────────
-
-export const BRIDGE_TOOLS: unknown[] = [];
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Runtime factory contract — minimal AgentRuntime interface used by ChatService.
-// Tests inject a fake via runtimeFactory; production code uses DefaultAgentRuntime.
+// AgentRuntime seam: tests inject a fake (Promise<void> contract); production
+// wires up the vendored DefaultAgentRuntime from src/main/sdk/zai-agent-core
+// and adapts its AsyncIterable<RuntimeEvent> to a Promise<void> while mapping
+// events to ChatEvent broadcasts.
 // ──────────────────────────────────────────────────────────────────────────────
 
 export interface AgentRuntime {
@@ -155,83 +154,194 @@ export interface AgentRuntime {
     model?: string;
     maxTurns?: number;
     toolsOverride?: string;
-    additionalTools?: unknown[];
+    additionalTools?: Tool[];
     skillsDirs?: string[];
     abortSignal?: AbortSignal;
   }): Promise<void>;
 }
 
-export interface ModelCaller {
-  call(model: string, messages: unknown[], opts: unknown): Promise<unknown>;
+// ──────────────────────────────────────────────────────────────────────────────
+// Production factory: instantiates the vendored DefaultAgentRuntime with the
+// data root (app.getPath("userData")), skillsDir, and createModelCaller, then
+// adapts its AsyncIterable<RuntimeEvent> to the AgentRuntime Promise<void>
+// seam by iterating events and broadcasting ChatEvent updates. Throws on
+// runtime.error or runtime.aborted so ChatService can mark items failed or
+// cancelled; resolves on runtime.done so ChatService marks the item completed.
+// ──────────────────────────────────────────────────────────────────────────────
+
+export interface ProductionRuntimeFactoryDeps {
+  dataRoot: string;
+  skillsDir: string;
+  broadcast: (event: ChatEvent) => void;
 }
 
-export function createModelCaller(opts: {
-  baseUrl: string;
-  apiKey: string;
-}): ModelCaller {
+export function createProductionRuntimeFactory(
+  deps: ProductionRuntimeFactoryDeps,
+): (args: RuntimeFactoryArgs) => AgentRuntime {
+  return (args) => createVendoredRuntimeAdapter({ ...deps, ...args });
+}
+
+interface VendoredAdapterArgs extends ProductionRuntimeFactoryDeps, RuntimeFactoryArgs {}
+
+function isToolUseStart(ev: RuntimeEvent): ev is RuntimeEvent & { toolUseId: string; name: string; input: unknown } {
+  return ev.type === "tool_use:start";
+}
+
+function isToolUseDone(ev: RuntimeEvent): ev is RuntimeEvent & { toolUseId: string; output: unknown } {
+  return ev.type === "tool_use:done";
+}
+
+function isToolUseError(ev: RuntimeEvent): ev is RuntimeEvent & { toolUseId: string; error: string } {
+  return ev.type === "tool_use:error" || ev.type === "tool_use:denied" || ev.type === "tool_use:invalid";
+}
+
+function createVendoredRuntimeAdapter(args: VendoredAdapterArgs): AgentRuntime {
+  const { dataRoot, skillsDir, settings, projectDir, abortSignal, broadcast } = args;
+  const modelCaller = createModelCaller({
+    baseUrl: settings.llm.baseUrl,
+    apiKey: settings.llm.apiKey,
+  });
+  const config: RuntimeConfig = {
+    dataDir: dataRoot,
+    defaultModel: settings.llm.model,
+    defaultMaxTurns: 10,
+    defaultPermissionMode: "bypassPermissions",
+    skillsDirs: [skillsDir],
+    modelCaller,
+  };
+  const runtime = new DefaultAgentRuntime(config);
+
   return {
-    async call(_model: string, _messages: unknown[], _callOpts: unknown) {
-      // Production wiring lives in a future task; this factory exists so the
-      // ChatService IPC registration can pass a valid modelCaller into
-      // DefaultAgentRuntime without leaking implementation details.
-      throw new Error("createModelCaller: no real LLM caller wired yet");
+    async run(params) {
+      // Reuse the per-project queueId assigned by ChatService. We need to find
+      // it from the most recent running queue item, which is implicit in the
+      // transcript we just appended. The caller passes transcriptId; the
+      // queueId is the userType suffix on the last user message we wrote.
+      const queryOpts: QueryOptions = {
+        prompt: params.prompt as QueryOptions["prompt"],
+        cwd: params.cwd ?? projectDir,
+        model: params.model ?? settings.llm.model,
+        transcriptId: params.transcriptId ?? transcriptIdForProject(""),
+        additionalTools: BRIDGE_TOOLS,
+        toolsOverride: "none",
+        maxTurns: params.maxTurns ?? 10,
+        skillsDirs: [skillsDir],
+        abortSignal,
+      };
+
+      const queueId = await resolveQueueIdFromTranscript(queryOpts.transcriptId ?? transcriptIdForProject(""), dataRoot);
+
+      const stream = runtime.run(queryOpts);
+      let finishedNormally = false;
+      try {
+        for await (const ev of stream) {
+          // runtime.done / runtime.error / runtime.aborted are terminal
+          // events; map them and stop iterating so the surrounding Promise
+          // resolves (done) or rejects (error/aborted).
+          if (ev.type === "runtime.done") {
+            finishedNormally = true;
+            break;
+          }
+          if (ev.type === "runtime.error") {
+            const errObj = (ev as { error?: { message?: string } }).error;
+            const message = errObj?.message ?? "runtime error";
+            const err = new Error(message) as Error & { code?: string; retryable?: boolean };
+            const code = (ev as { error?: { code?: string } }).error?.code;
+            if (code) err.code = code;
+            throw err;
+          }
+          if (ev.type === "runtime.aborted") {
+            const reason = (ev as { reason?: string }).reason;
+            const err = new Error(reason ?? "runtime aborted") as Error & { code?: string };
+            err.code = "ABORTED";
+            throw err;
+          }
+          mapRuntimeEventToChat(ev, queueId, queryOpts.transcriptId ?? "", broadcast);
+        }
+      } catch (err) {
+        throw err;
+      }
+
+      if (!finishedNormally) {
+        // Stream ended without runtime.done — surface a clear error.
+        throw new Error("vendored runtime stream ended without runtime.done event");
+      }
     },
   };
 }
 
-export interface DefaultAgentRuntimeOptions {
-  dataDir: string;
-  defaultModel: string;
-  defaultMaxTurns?: number;
-  defaultPermissionMode?: "default" | "bypassPermissions";
-  skillsDirs: string[];
-  modelCaller: ModelCaller;
-}
-
-/**
- * Minimal DefaultAgentRuntime stub. The full agent runtime (with tool
- * permissions, skill loading, transcript wiring, etc.) lives in a future
- * task. For Task 2 the runtime is only used in production via the
- * runtimeFactory closure — the chat IPC tests inject a fake. The shape
- * matches what the brief calls for so the production wiring can drop in
- * later without changing ChatService.
- */
-export class DefaultAgentRuntime implements AgentRuntime {
-  constructor(private readonly opts: DefaultAgentRuntimeOptions) {}
-
-  async run(params: {
-    prompt: unknown[];
-    transcriptId?: string;
-    cwd?: string;
-    model?: string;
-    maxTurns?: number;
-    toolsOverride?: string;
-    additionalTools?: unknown[];
-    skillsDirs?: string[];
-    abortSignal?: AbortSignal;
-  }): Promise<void> {
-    // Production runtime will delegate to the underlying SDK. Until that
-    // wiring lands, surface a clear error so a misconfigured production
-    // call fails loudly instead of silently doing nothing.
-    throw new Error(
-      "DefaultAgentRuntime.run is not yet wired to the underlying SDK; production chat IPC is disabled",
-    );
+async function resolveQueueIdFromTranscript(transcriptId: string, dataRoot: string): Promise<string> {
+  // Pull the most recent userType="chat:<queueId>" off the transcript. If the
+  // transcript is missing or has no chat messages, fall back to "unknown" so
+  // broadcast payloads are still well-formed.
+  try {
+    const store = new TranscriptStore(dataRoot);
+    const file = await store.read(transcriptId);
+    for (let i = file.messages.length - 1; i >= 0; i--) {
+      const m = file.messages[i];
+      if (m.role !== "user") continue;
+      const userType = (m.ctx as { userType?: string } | undefined)?.userType;
+      if (userType && userType.startsWith("chat:")) {
+        return userType.slice("chat:".length);
+      }
+    }
+  } catch {
+    // ignore
   }
+  return "unknown";
 }
 
-export function createDefaultRuntimeFactory(): (args: RuntimeFactoryArgs) => AgentRuntime {
-  return (args) =>
-    new DefaultAgentRuntime({
-      dataDir: args.dataRoot,
-      defaultModel: args.settings.llm.model,
-      defaultMaxTurns: 10,
-      defaultPermissionMode: "bypassPermissions",
-      skillsDirs: [args.skillsDir],
-      modelCaller: createModelCaller({
-        baseUrl: args.settings.llm.baseUrl,
-        apiKey: args.settings.llm.apiKey,
-      }),
+function mapRuntimeEventToChat(
+  ev: RuntimeEvent,
+  queueId: string,
+  transcriptId: string,
+  broadcast: (event: ChatEvent) => void,
+): void {
+  const projectId = transcriptId.startsWith(CHAT_TRANSCRIPT_PREFIX)
+    ? transcriptId.slice(CHAT_TRANSCRIPT_PREFIX.length)
+    : transcriptId;
+  if (ev.type === "content_block_delta") {
+    const delta = (ev as unknown as { delta?: { type?: string; text?: string } }).delta;
+    if (delta?.type === "text_delta" && typeof delta.text === "string" && delta.text.length > 0) {
+      broadcast({ type: "assistant-delta", projectId, queueId, text: delta.text });
+    }
+    // thinking deltas are saved to transcript by the runtime itself; we do
+    // not forward them to the UI per the brief.
+    return;
+  }
+  if (isToolUseStart(ev)) {
+    broadcast({
+      type: "tool-start",
+      projectId,
+      queueId,
+      toolUseId: ev.toolUseId,
+      name: ev.name,
+      input: ev.input,
     });
+    return;
+  }
+  if (isToolUseDone(ev)) {
+    broadcast({
+      type: "tool-done",
+      projectId,
+      queueId,
+      toolUseId: ev.toolUseId,
+      output: ev.output,
+    });
+    return;
+  }
+  if (isToolUseError(ev)) {
+    broadcast({
+      type: "tool-error",
+      projectId,
+      queueId,
+      toolUseId: ev.toolUseId,
+      error: String(ev.error),
+    });
+    return;
+  }
+  // runtime.done / runtime.error / runtime.aborted are translated by ChatService
+  // itself when the Promise resolves/rejects — no broadcast here.
 }
 
 export interface RuntimeFactoryArgs {
@@ -318,23 +428,19 @@ export class ChatService {
       this.store.set(projectId, empty);
       return empty;
     }
-    try {
-      const raw = await readFile(p, "utf8");
-      const file = JSON.parse(raw) as ConversationFile;
-      if (file.version !== 1) throw new Error(`unsupported conversation version ${file.version}`);
-      if (file.projectId !== projectId) {
-        throw new Error(
-          `conversation projectId mismatch: file=${file.projectId} expected=${projectId}`,
-        );
-      }
-      if (!Array.isArray(file.queue)) file.queue = [];
-      if (!Array.isArray(file.workflow)) file.workflow = [];
-      if (typeof file.paused !== "boolean") file.paused = false;
-      this.store.set(projectId, file);
-      return file;
-    } catch (e) {
-      throw e;
+    const raw = await readFile(p, "utf8");
+    const file = JSON.parse(raw) as ConversationFile;
+    if (file.version !== 1) throw new Error(`unsupported conversation version ${file.version}`);
+    if (file.projectId !== projectId) {
+      throw new Error(
+        `conversation projectId mismatch: file=${file.projectId} expected=${projectId}`,
+      );
     }
+    if (!Array.isArray(file.queue)) file.queue = [];
+    if (!Array.isArray(file.workflow)) file.workflow = [];
+    if (typeof file.paused !== "boolean") file.paused = false;
+    this.store.set(projectId, file);
+    return file;
   }
 
   private writeConversation(projectId: string, file: ConversationFile): Promise<void> {
@@ -372,13 +478,13 @@ export class ChatService {
       return false;
     }
     return file.messages.some(
-      (m) => m.role === "user" && (m.ctx as any)?.userType === userType,
+      (m) => m.role === "user" && (m.ctx as { userType?: string } | undefined)?.userType === userType,
     );
   }
 
   private isSkillInjection(msg: TranscriptMessage): boolean {
     if (msg.role !== "user") return false;
-    if ((msg.ctx as any)?.userType !== "zai") return false;
+    if ((msg.ctx as { userType?: string } | undefined)?.userType !== "zai") return false;
     const first = msg.content?.[0];
     if (!first || first.type !== "text") return false;
     return first.text.startsWith("[skill_injection:");
@@ -409,11 +515,7 @@ export class ChatService {
           .map((b) => b.text)
           .join("");
         if (!text) continue;
-        // Only surface messages with non-zai userType OR assistant with text
-        const userType = (m.ctx as any)?.userType;
-        if (m.role === "user" && userType === "zai") {
-          // Skip zai user messages that aren't skill injection (keep model output)
-        }
+        const userType = (m.ctx as { userType?: string } | undefined)?.userType;
         const item: ChatTimelineItem = {
           kind: "message",
           id: m.uuid,
@@ -488,15 +590,20 @@ export class ChatService {
     const snapshot = await this.buildSnapshot(projectId);
 
     // Reconcile queue statuses against transcript presence
+    let dirty = false;
     for (const q of conv.queue) {
       const userType = `chat:${q.id}`;
       const hasUser = await this.hasUserMessageFor(projectId, userType);
       if (q.status === "running" || q.status === "submitted") {
         if (!hasUser) {
-          // user message not yet appended; reset to queued so runNext picks it up
           q.status = "queued";
+          q.updatedAt = Date.now();
+          dirty = true;
         }
       }
+    }
+    if (dirty) {
+      await this.writeConversation(projectId, conv);
     }
 
     // Snapshot already returned. Now maybe start a worker if not running and not paused.
@@ -674,7 +781,7 @@ export class ChatService {
       try {
         const file = await store.read(this.transcriptIdFor(projectId));
         const found = file.messages.find(
-          (m) => m.role === "user" && (m.ctx as any)?.userType === userType,
+          (m) => m.role === "user" && (m.ctx as { userType?: string } | undefined)?.userType === userType,
         );
         transcriptUuid = found?.uuid;
       } catch {
@@ -718,18 +825,35 @@ export class ChatService {
         abortSignal: worker.abortController.signal,
       });
       succeeded = true;
-    } catch (e: any) {
-      const msg = e?.message ?? String(e);
-      const code = (e as any)?.code ?? "INTERNAL";
-      const retryable = (e as any)?.retryable ?? false;
-      await this.setItemStatus(projectId, next.id, {
-        status: "failed",
-        error: { code, message: msg, retryable },
-      });
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string; retryable?: boolean };
+      const msg = err?.message ?? String(e);
+      const code = err?.code ?? "INTERNAL";
+      const retryable = err?.retryable ?? false;
+      // Re-read latest conv: if cancel() already marked this item cancelled,
+      // don't overwrite that status with 'failed'.
+      const latestConv = await this.readConversation(projectId);
+      const latestItem = latestConv.queue.find((q) => q.id === next.id);
+      const isAbort = code === "ABORTED" || latestItem?.status === "cancelled";
+      if (isAbort) {
+        if (latestItem && latestItem.status !== "cancelled") {
+          await this.setItemStatus(projectId, next.id, {
+            status: "cancelled",
+            error: { code, message: msg, retryable: false },
+          });
+        }
+      } else {
+        await this.setItemStatus(projectId, next.id, {
+          status: "failed",
+          error: { code, message: msg, retryable },
+        });
+      }
       conv.paused = true;
-      conv.pauseReason = `runtime error: ${msg}`;
+      conv.pauseReason = isAbort ? "user-cancelled" : `runtime error: ${msg}`;
       worker.paused = true;
       await this.writeConversation(projectId, conv);
+      const refreshed = (await this.readConversation(projectId)).queue.find((q) => q.id === next.id);
+      if (refreshed) this.emitQueueStatus(projectId, refreshed, conv);
     } finally {
       worker.running = false;
       worker.currentQueueId = null;
@@ -737,14 +861,22 @@ export class ChatService {
     }
 
     if (succeeded) {
-      await this.setItemStatus(projectId, next.id, { status: "completed" });
+      const completed = await this.setItemStatus(projectId, next.id, { status: "completed" });
+      if (completed) {
+        this.emitQueueStatus(projectId, completed, conv);
+      }
+      // Per the brief: after runtime.done, re-load snapshot and broadcast
+      // project-changed so the renderer can pick up the new assistant text.
+      const snap = await this.buildSnapshot(projectId);
+      this.opts.broadcast({ type: "snapshot", projectId, snapshot: snap });
+      this.opts.broadcast({ type: "project-changed", projectId });
     }
 
     // Continue if not paused
     if (!worker.paused && !conv.paused) {
       void this.runNext(projectId).catch(() => {});
     } else {
-      // Broadcast project-changed snapshot
+      // Broadcast project-changed snapshot so the renderer can reload.
       const snap = await this.buildSnapshot(projectId);
       this.opts.broadcast({ type: "snapshot", projectId, snapshot: snap });
       this.opts.broadcast({ type: "project-changed", projectId });
@@ -761,17 +893,23 @@ let chatService: ChatService | null = null;
 export function getChatService(): ChatService {
   if (!chatService) {
     const dataRoot = app.getPath("userData");
+    const skillsDir = skillsDirForDataRoot(dataRoot);
+    const broadcast = (event: ChatEvent) => {
+      for (const w of BrowserWindow.getAllWindows()) {
+        w.webContents.send(IPC.CHAT_EVENT, event);
+      }
+    };
     chatService = new ChatService({
       dataRoot,
       getProject: (id) => projectFs.getProject(id),
       getProjectDir: (id) => getProjectDir(id),
       getSettings: () => settingsFs.getSettings(),
-      broadcast: (event: ChatEvent) => {
-        for (const w of BrowserWindow.getAllWindows()) {
-          w.webContents.send(IPC.CHAT_EVENT, event);
-        }
-      },
-      runtimeFactory: createDefaultRuntimeFactory(),
+      broadcast,
+      runtimeFactory: createProductionRuntimeFactory({
+        dataRoot,
+        skillsDir,
+        broadcast,
+      }),
     });
   }
   return chatService;
