@@ -17,6 +17,7 @@ export function defaultSettings(): Settings {
       baseUrl: "https://api.anthropic.com",
       apiKey: "",
       model: "claude-3-5-sonnet-20241022",
+      useOpenPlatform: false,
     },
     ui: { theme: "light" },
     paths: { projectsDir: join(getDataRoot(), "projects") },
@@ -28,7 +29,16 @@ export async function getSettings(): Promise<Settings> {
   if (!existsSync(p)) return defaultSettings();
   try {
     const raw = await readFile(p, "utf8");
-    return { ...defaultSettings(), ...JSON.parse(raw) } as Settings;
+    const parsed = JSON.parse(raw) as Partial<Settings>;
+    const defaults = defaultSettings();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return defaults;
+    return {
+      ...defaults,
+      ...parsed,
+      llm: { ...defaults.llm, ...(parsed.llm ?? {}) },
+      ui: { ...defaults.ui, ...(parsed.ui ?? {}) },
+      paths: { ...defaults.paths, ...(parsed.paths ?? {}) },
+    };
   } catch {
     return defaultSettings();
   }

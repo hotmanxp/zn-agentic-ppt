@@ -1,7 +1,11 @@
-import { App as AntdApp, Button, Form, Input, Select } from "antd";
+import { App as AntdApp, Button, Form, Input, Select, Switch } from "antd";
 import { useEffect, useState } from "react";
 import { PromptSettings } from "../components/PromptSettings.js";
 import { useSettingsStore } from "../stores/settings.js";
+import {
+  OPEN_PLATFORM_BASE_URL,
+  OPEN_PLATFORM_CREDENTIAL_PATH,
+} from "../../shared/types.js";
 
 const TABS = [
   { key: "llm", label: "LLM 服务" },
@@ -77,16 +81,45 @@ function LLMForm() {
             ]}
           />
         </Form.Item>
+        <Form.Item
+          label="使用开放平台登录"
+          extra="开启后使用固定开放平台地址，并读取本机开放平台登录凭据。"
+        >
+          <Switch
+            aria-label="使用开放平台登录"
+            checked={form.llm.useOpenPlatform}
+            onChange={(checked) => {
+              update({ useOpenPlatform: checked });
+              setTestResult(null);
+            }}
+          />
+        </Form.Item>
         <Form.Item label="API Base URL">
           <Input
-            value={form.llm.baseUrl}
+            aria-label="API Base URL"
+            value={form.llm.useOpenPlatform ? OPEN_PLATFORM_BASE_URL : form.llm.baseUrl}
+            disabled={form.llm.useOpenPlatform}
             onChange={(e) => update({ baseUrl: e.target.value })}
             style={{ fontFamily: "monospace" }}
           />
         </Form.Item>
-        <Form.Item label="API Key" extra="存储于本地，明文。后续版本将加密。">
+        <Form.Item
+          label="API Key"
+          extra={
+            form.llm.useOpenPlatform
+              ? `读取自 ${OPEN_PLATFORM_CREDENTIAL_PATH}`
+              : "存储于本地，明文。后续版本将加密。"
+          }
+        >
           <Input.Password
-            value={form.llm.apiKey}
+            aria-label="API Key"
+            value={form.llm.useOpenPlatform ? "" : form.llm.apiKey}
+            placeholder={
+              form.llm.useOpenPlatform
+                ? `读取自 ${OPEN_PLATFORM_CREDENTIAL_PATH}`
+                : undefined
+            }
+            disabled={form.llm.useOpenPlatform}
             onChange={(e) => update({ apiKey: e.target.value })}
             style={{ fontFamily: "monospace" }}
           />
@@ -102,7 +135,7 @@ function LLMForm() {
                 type="link"
                 onClick={async () => {
                   try {
-                    const r = await window.api.settings.testConnection();
+                    const r = await window.api.settings.testConnection(form);
                     setTestResult(r);
                     if (r.ok) message.success(`连接成功，${r.models?.length ?? 0} 个模型`);
                     else message.error(r.error ?? "连接失败");

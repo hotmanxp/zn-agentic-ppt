@@ -39,11 +39,15 @@ export interface ProjectDetail extends ProjectMeta {
 
 export type LLMProvider = "anthropic" | "openai" | "custom";
 
+export const OPEN_PLATFORM_BASE_URL = "https://zn-nova.paic.com.cn/novai";
+export const OPEN_PLATFORM_CREDENTIAL_PATH = "~/.nova/openAuth2.json";
+
 export interface LLMSettings {
   provider: LLMProvider;
   baseUrl: string;
   apiKey: string;
   model: string;
+  useOpenPlatform: boolean;
 }
 
 export interface Settings {

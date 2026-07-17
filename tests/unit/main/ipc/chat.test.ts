@@ -48,6 +48,7 @@ const settings: Settings = {
     baseUrl: "https://api.anthropic.com",
     apiKey: "test-key",
     model: "claude-test",
+    useOpenPlatform: false,
   },
   ui: { theme: "light" },
   paths: { projectsDir: "" },

@@ -50,7 +50,7 @@ export interface BridgeApi {
   settings: {
     get(): Promise<Settings>;
     set(settings: Settings): Promise<void>;
-    testConnection(): Promise<{ ok: boolean; models?: string[]; error?: string }>;
+    testConnection(settings: Settings): Promise<{ ok: boolean; models?: string[]; error?: string }>;
     prompts: {
       get(id: string): Promise<string | null>;
       set(id: string, template: string): Promise<void>;

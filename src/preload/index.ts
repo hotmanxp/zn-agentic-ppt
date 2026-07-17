@@ -3,6 +3,7 @@ import type {
   ChatEvent,
   ChatSnapshot,
   ChatWorkflowEvent,
+  Settings,
 } from "../shared/types.js";
 import { IPC } from "../shared/ipc-channels.js";
 import type { IntentGenerateResponse, IntentStreamPayload } from "../shared/ipc-types.js";
@@ -22,7 +23,8 @@ const api = {
   settings: {
     get: () => ipcRenderer.invoke(IPC.SETTINGS_GET),
     set: (settings: any) => ipcRenderer.invoke(IPC.SETTINGS_SET, { settings }),
-    testConnection: () => ipcRenderer.invoke(IPC.SETTINGS_TEST_CONNECTION),
+    testConnection: (settings: Settings) =>
+      ipcRenderer.invoke(IPC.SETTINGS_TEST_CONNECTION, { settings }),
     prompts: {
       get: (id: string) => ipcRenderer.invoke(IPC.SETTINGS_PROMPT_GET, { id }),
       set: (id: string, template: string) =>

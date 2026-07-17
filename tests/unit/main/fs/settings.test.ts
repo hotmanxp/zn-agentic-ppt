@@ -40,6 +40,37 @@ describe("fs/settings", () => {
     const s = await getSettings();
     expect(s.llm.provider).toBe("anthropic");
   });
+
+  it("defaults open platform login to disabled", async () => {
+    const s = await getSettings();
+    expect(s.llm.useOpenPlatform).toBe(false);
+  });
+
+  it("fills the open platform flag into a legacy llm object", async () => {
+    writeFileSync(
+      join(dir, "settings.json"),
+      JSON.stringify({
+        llm: {
+          provider: "custom",
+          baseUrl: "https://legacy.example.com",
+          apiKey: "legacy-key",
+          model: "legacy-model",
+        },
+        ui: { theme: "dark" },
+        paths: { projectsDir: "/tmp/legacy-projects" },
+      }),
+    );
+
+    const s = await getSettings();
+
+    expect(s.llm).toEqual({
+      provider: "custom",
+      baseUrl: "https://legacy.example.com",
+      apiKey: "legacy-key",
+      model: "legacy-model",
+      useOpenPlatform: false,
+    });
+  });
 });
 
 describe("fs/settings prompt overrides", () => {

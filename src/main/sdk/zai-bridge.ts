@@ -7,7 +7,16 @@
 // event shape, identical to the previous vendor SDK, so orchestrator code
 // does not need to be rewritten.
 
+import { AsyncLocalStorage } from "node:async_hooks";
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
+import {
+  OPEN_PLATFORM_BASE_URL,
+  OPEN_PLATFORM_CREDENTIAL_PATH,
+} from "../../shared/types.js";
+import * as settingsFs from "../fs/settings.js";
 // `app` is read lazily (inside `getRuntime` / `runZaiQuery`) so that the
 // bridge module can be loaded in test environments where Electron's main-
 // process binary is not available. Production code calls these from the
@@ -29,6 +38,77 @@ import { wrapAsOpenccTool } from "./zai-agent-core/tools/legacyAdapter.js";
 import { DefaultAgentRuntime } from "./zai-agent-core/runtime/contract.js";
 import type { QueryOptions, RuntimeConfig } from "./zai-agent-core/runtime/types.js";
 import type { Tool } from "./zai-agent-core/tools/Tool.js";
+
+// ---------------------------------------------------------------------------
+// Open-platform authentication state
+// ---------------------------------------------------------------------------
+
+type OpenPlatformAuthState =
+  | { ok: true; accessToken: string }
+  | { ok: false; reason: string };
+
+let openPlatformEnabled = false;
+let openPlatformAuth: OpenPlatformAuthState = {
+  ok: false,
+  reason: "凭据尚未初始化",
+};
+const openPlatformMode = new AsyncLocalStorage<boolean>();
+
+export async function initializeOpenPlatformAuth(
+  enabled: boolean,
+  filePath = join(homedir(), ".nova", "openAuth2.json"),
+): Promise<void> {
+  openPlatformEnabled = enabled;
+
+  let raw: string;
+  try {
+    raw = await readFile(filePath, "utf8");
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    openPlatformAuth = {
+      ok: false,
+      reason: code === "ENOENT" ? "凭据文件不存在" : "无法读取凭据文件",
+    };
+    return;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    openPlatformAuth = { ok: false, reason: "凭据文件不是有效 JSON" };
+    return;
+  }
+
+  const token =
+    parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as { access_token?: unknown }).access_token
+      : undefined;
+  if (typeof token !== "string" || !token.trim()) {
+    openPlatformAuth = { ok: false, reason: "凭据字段缺失或无效" };
+    return;
+  }
+
+  openPlatformAuth = { ok: true, accessToken: token.trim() };
+}
+
+export function setOpenPlatformEnabled(enabled: boolean): void {
+  openPlatformEnabled = enabled;
+}
+
+export function withOpenPlatformMode<T>(
+  enabled: boolean,
+  run: () => Promise<T>,
+): Promise<T> {
+  return openPlatformMode.run(enabled, run);
+}
+
+const isVitest =
+  process.env.NODE_ENV === "test" && process.env.VITEST === "true";
+if (!isVitest) {
+  const settings = await settingsFs.getSettings();
+  await initializeOpenPlatformAuth(settings.llm.useOpenPlatform);
+}
 
 // ---------------------------------------------------------------------------
 // Tools enabled for the LLM. We keep Read/Write/Edit + Glob/Grep so the
@@ -122,9 +202,21 @@ export type ModelCallerOpts = {
   apiKey: string;
 };
 
+export function resolveLlmCredentials(manual: ModelCallerOpts): ModelCallerOpts {
+  const enabled = openPlatformMode.getStore() ?? openPlatformEnabled;
+  if (!enabled) return manual;
+  if (!openPlatformAuth.ok) {
+    throw new Error(
+      `开放平台登录凭据不可用：${openPlatformAuth.reason}。请检查 ${OPEN_PLATFORM_CREDENTIAL_PATH} 后完全重启应用。`,
+    );
+  }
+  return {
+    baseUrl: OPEN_PLATFORM_BASE_URL,
+    apiKey: openPlatformAuth.accessToken,
+  };
+}
+
 export function createModelCaller(opts: ModelCallerOpts) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const client: any = makeAnthropicClient(opts);
   // The zai `ModelCaller` return type is a strict union of the seven known
   // `RawMessageStreamEvent` shapes; we cast to `any` here because Anthropic's
   // SDK stream events carry extra fields per type (e.g. `message` on start,
@@ -138,6 +230,10 @@ export function createModelCaller(opts: ModelCallerOpts) {
     tools: Array<{ name: string; [k: string]: unknown }>;
     signal: AbortSignal;
   }): AsyncGenerator<any, any, any> {
+    // Resolve credentials and build the Anthropic client for every invocation
+    // so the AsyncLocalStorage request override is respected each time, even
+    // when the same `modelCaller` is reused concurrently under opposite modes.
+    const client = makeAnthropicClient(resolveLlmCredentials(opts));
     const sys = Array.isArray(req.systemPrompt)
       ? req.systemPrompt
           .map((b) =>
