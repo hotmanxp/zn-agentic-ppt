@@ -5,6 +5,7 @@ import {
   CheckCircle,
   Circle,
   SpinnerGap,
+  WarningCircle,
 } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import type { ExecutionStep } from "./data/executionSteps.js";
@@ -71,14 +72,18 @@ export function GenerationThinkingPanel({
             {steps.map((item, index) => {
               const threshold = (index + 1) * 20;
               const done = stepStates?.[item.id] === "done" || progress >= threshold;
-              const active = stepStates?.[item.id] === "running" || (!done && index === activeIndex);
+              const error = stepStates?.[item.id] === "error";
+              const active = !done && !error && (stepStates?.[item.id] === "running" || index === activeIndex);
+              const cls = `${done ? "is-done" : ""} ${active ? "is-active" : ""} ${error ? "is-error" : ""}`.trim();
               return (
                 <div
-                  className={`${done ? "is-done" : ""} ${active ? "is-active" : ""}`}
+                  className={cls}
                   key={item.id}
                 >
                   {done ? (
                     <CheckCircle size={16} weight="fill" />
+                  ) : error ? (
+                    <WarningCircle size={16} weight="fill" />
                   ) : active ? (
                     <SpinnerGap size={16} />
                   ) : (

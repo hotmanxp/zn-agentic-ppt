@@ -1590,11 +1590,17 @@ body.is-resizing-preview {
   color: #5f4c3d;
   font-weight: 600;
 }
+.run-log > div.is-error {
+  color: var(--danger, #dc2626);
+}
 .run-log .is-done svg {
   color: var(--green);
 }
 .run-log .is-active svg {
   color: var(--orange-strong);
+}
+.run-log .is-error svg {
+  color: var(--danger, #dc2626);
 }
 .continue-run {
   width: 100%;
