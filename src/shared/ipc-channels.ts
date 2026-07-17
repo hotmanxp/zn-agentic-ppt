@@ -39,7 +39,6 @@ export const IPC = {
   STAGE_HTML_GENERATE: "stage:html-generate",
   STAGE_STYLE_SAVE: "stage:style-save",
   STAGE_INTENT_GENERATE: "stage:intent-generate",
-  STAGE_INTENT_CANCEL: "stage:intent-cancel",
 
   // Stage 1-4 cancellation (renderer → main, invoke)
   STAGE_OUTLINE_CANCEL: "stage:outline-cancel",

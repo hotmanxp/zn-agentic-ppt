@@ -12,7 +12,6 @@ interface IntentState {
   chars: number;
   lastError: string | null;
   run: (projectId: string) => Promise<IntentSummary>;
-  cancel: () => Promise<void>;
   applyEvent: (e: IntentStreamPayload) => void;
   reset: () => void;
 }
@@ -44,12 +43,6 @@ export const useIntentGenerationStore = create<IntentState>((set, get) => ({
       if (get().phase !== "error") set({ phase: "error", lastError: msg });
       throw e;
     }
-  },
-
-  cancel: async () => {
-    const { projectId } = get();
-    if (!projectId) return;
-    await api.stage.intentCancel(projectId);
   },
 
   applyEvent: (e) => {

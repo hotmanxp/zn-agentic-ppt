@@ -238,11 +238,6 @@ export function registerStageIPC() {
     return generateIntent(id);
   });
 
-  ipcMain.handle(IPC.STAGE_INTENT_CANCEL, async (_, { id }: { id: string }) => {
-    registry.cancel(`intent:${id}`);
-    return { ok: true };
-  });
-
   ipcMain.handle(
     IPC.STAGE_OUTLINE_UPDATE,
     async (_, { id, slideId, patch }: { id: string; slideId: string; patch: any }) => {

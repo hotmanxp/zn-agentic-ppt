@@ -108,7 +108,6 @@ export interface BridgeApi {
     }>;
     htmlCancel(id: string): Promise<{ ok: boolean }>;
     intentGenerate(id: string): Promise<IntentGenerateResponse>;
-    intentCancel(id: string): Promise<{ ok: boolean }>;
     onIntentStream(cb: (e: IntentStreamPayload) => void): () => void;
     styleSave(id: string, style: StyleSettings): Promise<void>;
     onSlideUpdated(
