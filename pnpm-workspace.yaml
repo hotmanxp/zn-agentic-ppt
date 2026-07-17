@@ -2,3 +2,19 @@ allowBuilds:
   '@biomejs/biome': true
   electron: true
   esbuild: true
+
+# Force signal-exit@3 (function export). v4 switched to named exports,
+# which breaks proper-lockfile@4 (`require('signal-exit')` returns the
+# exports object, calling which throws "onExit is not a function" at
+# module load). Only surfaces in packaged Electron builds because dev
+# resolves proper-lockfile's local signal-exit@3 via .pnpm private paths.
+overrides:
+  signal-exit: 3.0.7
+
+# Use flat hoisted node_modules like npm. In pnpm v10+ this setting
+# moved from `.npmrc` to here. Required for electron-builder asar:
+# pnpm's .pnpm/<pkg>@<ver>/node_modules/<pkg> symlinks break
+# proper-lockfile's require('signal-exit') lookup when asar flattens
+# the tree. Hoisted mode also makes the signal-exit override resolve
+# unambiguously to a single top-level copy.
+nodeLinker: hoisted
