@@ -177,3 +177,26 @@ describe("runOrchestrator event bridge", () => {
     expect(result.failed).toBe(1); // s2 没机会完成 → failed
   });
 });
+
+describe("runOrchestrator end-to-end smoke", () => {
+  it("integrates prompt building + runZaiQuery call without throwing on minimal input", async () => {
+    const { mkdirSync } = await import("node:fs");
+    const smokeTmp = mkdtempSync(join(tmpdir(), "orch-smoke-"));
+    mkdirSync(join(smokeTmp, "p-empty"), { recursive: true });
+    setProjectsDirForTest(smokeTmp);
+
+    async function* empty() {
+      yield { type: "runtime.done", text: "" };
+    }
+    mockStream.mockImplementation(() => empty());
+
+    const result = await runOrchestrator({
+      projectId: "p-empty",
+      outline: { topic: "T", slides: [] } as any,
+      settings: { llm: { baseUrl: "https://x", apiKey: "sk-fake", model: "test-model" } } as any,
+      cwd: smokeTmp,
+    });
+    expect(result.total).toBe(0);
+    expect(result.cancelled).toBe(false);
+  });
+});
