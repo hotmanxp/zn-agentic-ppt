@@ -13,7 +13,10 @@ export type PromptId =
   | "REGENERATE_PROMPT"
   | "SLIDE_SYSTEM_PROMPT"
   | "SLIDE_USER_PROMPT"
-  | "INTENTION_PROMPT";
+  | "INTENTION_PROMPT"
+  | "PPT_PARENT_SYSTEM_PROMPT"
+  | "PPT_PARENT_USER_PROMPT"
+  | "PPT_SLIDE_GENERATOR_PROMPT";
 
 export interface PromptSpec {
   id: PromptId;

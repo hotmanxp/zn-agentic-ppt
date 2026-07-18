@@ -62,3 +62,10 @@ import { slideUserPrompt } from "./slide-user.js";
 registerPrompt(slideUserPrompt);
 import { intentionPrompt } from "./intention.js";
 registerPrompt(intentionPrompt);
+
+import { pptParentSystemPrompt } from "./ppt-parent-system.js";
+registerPrompt(pptParentSystemPrompt);
+import { pptParentUserPrompt } from "./ppt-parent-user.js";
+registerPrompt(pptParentUserPrompt);
+import { pptSlideGeneratorPrompt } from "./ppt-slide-generator.js";
+registerPrompt(pptSlideGeneratorPrompt);
