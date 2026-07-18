@@ -34,6 +34,7 @@ import { FileReadTool } from "./zai-agent-core/tools/FileReadTool/FileReadTool.j
 import { FileWriteTool } from "./zai-agent-core/tools/FileWriteTool/FileWriteTool.js";
 import { GlobTool } from "./zai-agent-core/tools/GlobTool/GlobTool.js";
 import { GrepTool } from "./zai-agent-core/tools/GrepTool/GrepTool.js";
+import { AgentTool } from "./zai-agent-core/tools/AgentTool/AgentTool.js";
 import { wrapAsOpenccTool } from "./zai-agent-core/tools/legacyAdapter.js";
 import { DefaultAgentRuntime } from "./zai-agent-core/runtime/contract.js";
 import type { QueryOptions, RuntimeConfig } from "./zai-agent-core/runtime/types.js";
@@ -118,13 +119,27 @@ if (!isVitest) {
 // zai base set entirely and uses only `additionalTools`.
 // ---------------------------------------------------------------------------
 
-export const BRIDGE_TOOLS: Tool[] = [
+// 子 agent 工具集：单 slide 生成 + 自检 + Edit 迭代
+// （不含 Agent —— 单 slide 任务不递归）
+export const SUB_AGENT_TOOLS: Tool[] = [
   wrapAsOpenccTool(FileReadTool),
   wrapAsOpenccTool(FileWriteTool),
   wrapAsOpenccTool(FileEditTool),
   wrapAsOpenccTool(GlobTool),
   wrapAsOpenccTool(GrepTool),
 ];
+
+// 父 agent 工具集：派发子任务 + 检阅子 agent 产出
+// （不含 Write/Edit —— 父 agent 不写文件）
+export const PARENT_AGENT_TOOLS: Tool[] = [
+  wrapAsOpenccTool(FileReadTool),
+  wrapAsOpenccTool(GlobTool),
+  wrapAsOpenccTool(GrepTool),
+  wrapAsOpenccTool(AgentTool),
+];
+
+// 保留 BRIDGE_TOOLS 别名指向 SUB_AGENT_TOOLS，向后兼容旧调用点
+export const BRIDGE_TOOLS: Tool[] = SUB_AGENT_TOOLS;
 
 // ---------------------------------------------------------------------------
 // Bridged event shape. Mirrors the subset of the vendored SDK's `msg.type`
