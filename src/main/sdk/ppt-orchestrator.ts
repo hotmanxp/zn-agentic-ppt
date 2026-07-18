@@ -140,35 +140,101 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
     additionalTools: PARENT_AGENT_TOOLS,
   });
 
-  // Step 4 (phase 1): 监听 stream 直到终止事件
+  // Step 4: 事件桥 — 父 stream 事件 → onSlideReady 回调 + 内部 slideState
+  interface SlideStateEntry {
+    status: SlideStatus;
+    html?: string;
+    error?: string;
+    dispatchCount: number;
+  }
+  const slideState = new Map<string, SlideStateEntry>();
+  const subToSlide = new Map<string, string>();
   let cancelled = false;
   let runtimeDone = false;
-  let completed = 0;
-  let failed = 0;
+
+  const parseSlideId = (desc?: string): string | null => {
+    const m = desc?.match(/Generate slide (\S+)/);
+    return m ? m[1] : null;
+  };
+
+  const getLayoutFor = (slideId: string): 1 | 2 | 3 | 4 | 5 => {
+    const idx = opts.outline.slides.findIndex((s) => s.id === slideId);
+    return numericLayout(idx >= 0 ? opts.outline.slides[idx] : {}, idx >= 0 ? idx : 0);
+  };
+
   try {
     for await (const ev of stream) {
-      if (opts.signal?.aborted) {
-        cancelled = true;
-        break;
-      }
       const t = (ev as { type: string }).type;
-      if (t === "runtime.done" || t === "runtime.error") {
+      if (t === "subagent:start") {
+        const e = ev as unknown as { subSessionId: string; description?: string };
+        const slideId = parseSlideId(e.description);
+        if (!slideId) continue;
+        subToSlide.set(e.subSessionId, slideId);
+        const s = slideState.get(slideId) ?? { status: "pending", dispatchCount: 0 };
+        s.dispatchCount++;
+        if (s.dispatchCount === 1) {
+          s.status = "layout";
+          slideState.set(slideId, s);
+          await opts.onSlideReady?.({
+            id: slideId,
+            title: slideId,
+            status: "layout",
+            layout: getLayoutFor(slideId),
+          });
+          opts.onProgress?.({ completed: 0, total, slideId, status: "layout" });
+        }
+      } else if (t === "subagent:done") {
+        const e = ev as unknown as { subSessionId: string; exitReason?: string; output?: string };
+        const slideId = subToSlide.get(e.subSessionId);
+        if (!slideId) continue;
+        const layout = getLayoutFor(slideId);
+        let html: string | null = null;
+        try {
+          const fs = await import("node:fs/promises");
+          html = await fs.readFile(`${opts.cwd}/slides/${slideId}.html`, "utf8");
+        } catch {
+          html = null;
+        }
+        const s = slideState.get(slideId) ?? { status: "pending", dispatchCount: 1 };
+        if (e.exitReason === "completed" && html) {
+          s.status = "done";
+          s.html = html;
+          slideState.set(slideId, s);
+          await opts.onSlideReady?.({
+            id: slideId, title: slideId, status: "done", layout, html,
+          });
+        } else {
+          s.status = "failed";
+          s.error = e.output ?? `exitReason=${e.exitReason}`;
+          slideState.set(slideId, s);
+          await opts.onSlideReady?.({
+            id: slideId, title: slideId, status: "failed", layout, error: s.error,
+          });
+        }
+      } else if (t === "runtime.done" || t === "runtime.error") {
         runtimeDone = true;
         break;
-      }
-      if (t === "runtime.aborted") {
+      } else if (t === "runtime.aborted") {
         cancelled = true;
         break;
       }
     }
   } catch {
-    // runZaiQuery 抛错 → 视为所有 slide 失败
-    failed = total;
-    return { completed: 0, failed, total, cancelled };
+    // runZaiQuery 抛错 → fallback 视为所有 slide 失败
+    return { completed: 0, failed: total, total, cancelled: false };
   }
 
   if (opts.signal?.aborted) cancelled = true;
 
-  // Phase 1 简化：不桥接 per-slide 事件；后续 phase 叠加
+  // 统计完成 / 失败（runtime 终止但 slide 没动的视为 failed）
+  let completed = 0;
+  let failed = 0;
+  for (const slideId of opts.outline.slides.map((s) => s.id)) {
+    const s = slideState.get(slideId);
+    if (s?.status === "done") completed++;
+    else if (s?.status === "failed") failed++;
+    else if (!cancelled && runtimeDone) failed++;
+  }
+
   return { completed, failed, total, cancelled };
 }

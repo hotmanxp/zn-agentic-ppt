@@ -59,3 +59,121 @@ describe("runOrchestrator (sub-agent rewrite, phase 1)", () => {
     expect(result.total).toBe(2);
   });
 });
+
+describe("runOrchestrator event bridge", () => {
+  let tmp: string;
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), "orch-evt-"));
+    mkdirSync(join(tmp, "p1"), { recursive: true });
+    mkdirSync(join(tmp, "slides"), { recursive: true });
+    setProjectsDirForTest(tmp);
+    mockStream.mockReset();
+  });
+
+  it("subagent:start first time triggers layout, second time does not (no flicker)", async () => {
+    const readyEvents: any[] = [];
+    async function* s() {
+      yield { type: "subagent:start", subSessionId: "u1", description: "Generate slide s1" };
+      yield { type: "subagent:start", subSessionId: "u2", description: "Generate slide s1" };
+      yield { type: "runtime.done", text: "" };
+    }
+    mockStream.mockImplementation(() => s());
+
+    await runOrchestrator({
+      projectId: "p1",
+      outline: { topic: "T", slides: [{ id: "s1", title: "A" }] } as any,
+      settings: { llm: { baseUrl: "https://x", apiKey: "sk-fake", model: "test-model" } } as any,
+      cwd: tmp,
+      onSlideReady: (slide) => readyEvents.push(slide),
+    });
+
+    const s1Layouts = readyEvents.filter((e) => e.id === "s1" && e.status === "layout");
+    expect(s1Layouts).toHaveLength(1);
+  });
+
+  it("subagent:done + html file exists → done with html", async () => {
+    const { writeFileSync: write } = await import("node:fs");
+    write(join(tmp, "slides", "s1.html"), "<section data-layout='1'>ok</section>");
+
+    const readyEvents: any[] = [];
+    async function* s() {
+      yield { type: "subagent:start", subSessionId: "u1", description: "Generate slide s1" };
+      yield { type: "subagent:done", subSessionId: "u1", exitReason: "completed", output: "" };
+      yield { type: "runtime.done", text: "" };
+    }
+    mockStream.mockImplementation(() => s());
+
+    const result = await runOrchestrator({
+      projectId: "p1",
+      outline: { topic: "T", slides: [{ id: "s1", title: "A" }] } as any,
+      settings: { llm: { baseUrl: "https://x", apiKey: "sk-fake", model: "test-model" } } as any,
+      cwd: tmp,
+      onSlideReady: (slide) => readyEvents.push(slide),
+    });
+
+    const s1Done = readyEvents.find((e) => e.id === "s1" && e.status === "done");
+    expect(s1Done).toBeDefined();
+    expect(s1Done.html).toContain("<section");
+    expect(result.completed).toBe(1);
+  });
+
+  it("subagent:done + html missing → failed with error", async () => {
+    const readyEvents: any[] = [];
+    async function* s() {
+      yield { type: "subagent:start", subSessionId: "u1", description: "Generate slide s1" };
+      yield { type: "subagent:done", subSessionId: "u1", exitReason: "error", output: "boom" };
+      yield { type: "runtime.done", text: "" };
+    }
+    mockStream.mockImplementation(() => s());
+
+    const result = await runOrchestrator({
+      projectId: "p1",
+      outline: { topic: "T", slides: [{ id: "s1", title: "A" }] } as any,
+      settings: { llm: { baseUrl: "https://x", apiKey: "sk-fake", model: "test-model" } } as any,
+      cwd: tmp,
+      onSlideReady: (slide) => readyEvents.push(slide),
+    });
+
+    const s1Failed = readyEvents.find((e) => e.id === "s1" && e.status === "failed");
+    expect(s1Failed).toBeDefined();
+    expect(s1Failed.error).toContain("boom");
+    expect(result.failed).toBe(1);
+  });
+
+  it("runtime.aborted → cancelled=true in result", async () => {
+    async function* s() {
+      yield { type: "subagent:start", subSessionId: "u1", description: "Generate slide s1" };
+      yield { type: "runtime.aborted" };
+    }
+    mockStream.mockImplementation(() => s());
+
+    const result = await runOrchestrator({
+      projectId: "p1",
+      outline: { topic: "T", slides: [{ id: "s1", title: "A" }] } as any,
+      settings: { llm: { baseUrl: "https://x", apiKey: "sk-fake", model: "test-model" } } as any,
+      cwd: tmp,
+    });
+    expect(result.cancelled).toBe(true);
+  });
+
+  it("runtime.error → remaining slides counted as failed", async () => {
+    const { writeFileSync: write } = await import("node:fs");
+    write(join(tmp, "slides", "s1.html"), "<section></section>");
+
+    async function* s() {
+      yield { type: "subagent:start", subSessionId: "u1", description: "Generate slide s1" };
+      yield { type: "subagent:done", subSessionId: "u1", exitReason: "completed", output: "" };
+      yield { type: "runtime.error", error: "max_turns" };
+    }
+    mockStream.mockImplementation(() => s());
+
+    const result = await runOrchestrator({
+      projectId: "p1",
+      outline: { topic: "T", slides: [{ id: "s1", title: "A" }, { id: "s2", title: "B" }] } as any,
+      settings: { llm: { baseUrl: "https://x", apiKey: "sk-fake", model: "test-model" } } as any,
+      cwd: tmp,
+    });
+    expect(result.completed).toBe(1);
+    expect(result.failed).toBe(1); // s2 没机会完成 → failed
+  });
+});
