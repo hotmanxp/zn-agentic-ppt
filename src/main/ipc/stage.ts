@@ -153,7 +153,20 @@ export function registerStageIPC() {
     const settings = await settingsFs.getSettings();
     const cwd = getProjectDir(id);
     const key = id;
-    const rawIntent = await readIntent(id);
+    // First-time outline generation may arrive before any approveOutline
+    // chain has populated intent.json (the renderer entry point is
+    // approveSources). Fall back to generateIntent so the outline still
+    // has intent grounding and the workbench can advance past
+    // "提炼核心观点" instead of stuck-spinning.
+    let rawIntent = await readIntent(id);
+    if (!rawIntent) {
+      const fallback = await generateIntent(id);
+      if (fallback.phase !== "done") {
+        if (fallback.phase === "cancelled") return { phase: "cancelled" as const };
+        throw new Error(fallback.error?.message ?? "意图提炼失败");
+      }
+      rawIntent = (await readIntent(id)) ?? null;
+    }
     if (!rawIntent) throw new Error("意图未生成，请先重试生成（intent 未持久化）");
     const intent = intentSchema.parse(rawIntent);
     let buffer = "";
