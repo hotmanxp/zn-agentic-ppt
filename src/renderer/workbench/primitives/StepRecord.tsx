@@ -20,8 +20,8 @@ export function StepRecord({
         <div className="step-record-copy">
           <b>{title}</b>
           <div className="step-record-meta">
-            {meta.map((m) => (
-              <span key={m}>{m}</span>
+            {meta.map((m, i) => (
+              <span key={i}>{m}</span>
             ))}
           </div>
           {children}
