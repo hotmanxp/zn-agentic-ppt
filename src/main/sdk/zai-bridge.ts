@@ -316,6 +316,9 @@ export type RunZaiQueryOpts = {
   apiKey: string;
   /** Optional test-only override: when set, used instead of `runtime.run()`. */
   _testStream?: AsyncIterable<unknown>;
+  /** Tool set passed to the runtime. Defaults to BRIDGE_TOOLS (== SUB_AGENT_TOOLS).
+   *  Pass PARENT_AGENT_TOOLS for the orchestrator parent agent. */
+  additionalTools?: Tool[];
 };
 
 export async function* runZaiQuery(
@@ -329,7 +332,7 @@ export async function* runZaiQuery(
     model: opts.model,
     systemPrompt: opts.systemPrompt,
     maxTurns: opts.maxTurns ?? 3,
-    additionalTools: BRIDGE_TOOLS,
+    additionalTools: opts.additionalTools ?? BRIDGE_TOOLS,
     toolsOverride: "none",
     abortSignal: new AbortController().signal,
   };
