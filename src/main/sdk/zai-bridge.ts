@@ -37,6 +37,7 @@ import { GrepTool } from "./zai-agent-core/tools/GrepTool/GrepTool.js";
 import { AgentTool } from "./zai-agent-core/tools/AgentTool/AgentTool.js";
 import { wrapAsOpenccTool } from "./zai-agent-core/tools/legacyAdapter.js";
 import { DefaultAgentRuntime } from "./zai-agent-core/runtime/contract.js";
+import { initBackgroundRuntimeFor } from "./background-runtime.js";
 import type { QueryOptions, RuntimeConfig } from "./zai-agent-core/runtime/types.js";
 import type { Tool } from "./zai-agent-core/tools/Tool.js";
 
@@ -350,6 +351,11 @@ export async function* runZaiQuery(
     defaultPermissionMode: "bypassPermissions",
     modelCaller,
   });
+  // Wire BackgroundRuntime so AgentTool's `run_in_background: true` actually
+  // dispatches to the queue (otherwise it silently falls back to synchronous
+  // mode and serialises every sub-agent — the main reason the parent LLM
+  // "真并行" design didn't materialise).
+  initBackgroundRuntimeFor({ dataDir, agentRuntime: perQueryRuntime });
 
   const stream = opts._testStream ?? perQueryRuntime.run(queryOpts);
   for await (const rawEvent of stream) {
