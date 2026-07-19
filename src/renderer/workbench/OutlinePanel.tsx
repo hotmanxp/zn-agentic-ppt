@@ -1,4 +1,4 @@
-import { DotsThree, Minus, Plus } from "@phosphor-icons/react";
+import { Minus, PencilSimple, Plus } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { useOutlineStore } from "../stores/outline.js";
 import { useWorkbenchStore } from "../stores/workbench.js";
@@ -97,7 +97,11 @@ export function OutlinePanel({
                   {item.note && <small>{item.note}</small>}
                   {item.source && <em>{item.source}</em>}
                 </span>
-                <DotsThree size={17} weight={isOpen ? "bold" : "regular"} />
+                {isOpen ? (
+                  <Minus size={16} weight="bold" />
+                ) : (
+                  <PencilSimple size={16} aria-label="点击编辑" />
+                )}
               </button>
               {isOpen && (
                 <div className="outline-list-editor">

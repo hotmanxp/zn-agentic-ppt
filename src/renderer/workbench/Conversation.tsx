@@ -95,10 +95,6 @@ export function Conversation() {
   const deckVersions = useWorkbenchStore((s) => s.deckVersions);
   const toggleSource = useWorkbenchStore((s) => s.toggleSource);
   const setActiveSource = useWorkbenchStore((s) => s.setActiveSource);
-  const updateOutlineItem = useWorkbenchStore((s) => s.updateOutlineItem);
-  const addOutlineItem = useWorkbenchStore((s) => s.addOutlineItem);
-  const removeOutlineItem = useWorkbenchStore((s) => s.removeOutlineItem);
-  const moveOutlineItem = useWorkbenchStore((s) => s.moveOutlineItem);
   const openDeckPreview = useWorkbenchStore((s) => s.openDeckPreview);
   const searchProgress = useWorkbenchStore((s) => s.searchProgress);
 
@@ -182,14 +178,7 @@ export function Conversation() {
         <article className="message-row is-agent">
           <AgentIdentity />
           <div className="agent-message">
-            <OutlineApproval
-              brief={brief}
-              outlineItems={outlineDraft}
-              onAddItem={addOutlineItem}
-              onUpdateItem={updateOutlineItem}
-              onRemoveItem={removeOutlineItem}
-              onMoveItem={moveOutlineItem}
-            />
+            <OutlineApproval brief={brief} outlineItems={outlineDraft} />
           </div>
         </article>
       )}
