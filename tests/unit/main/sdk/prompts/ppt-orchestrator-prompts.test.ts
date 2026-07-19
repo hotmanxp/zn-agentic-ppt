@@ -6,32 +6,34 @@ vi.mock("electron", () => ({
 
 import { renderPrompt } from "../../../../../src/main/sdk/prompts/index.js";
 
-describe("PPT orchestrator prompts", () => {
-  it("PPT_PARENT_SYSTEM_PROMPT renders without throwing and contains 6 validation rules", async () => {
+describe("PPT orchestrator prompts (P1-4: parent is dispatcher-only)", () => {
+  it("PPT_PARENT_SYSTEM_PROMPT is dispatcher-only — no validation, no retry, no file reads", async () => {
     const out = await renderPrompt("PPT_PARENT_SYSTEM_PROMPT", {});
-    // 禁止要求「输出 JSON / 输出摘要」作为最终交付物；「不要输出 JSON 摘要」是允许的（明确的负面指令）
-    // 「不要输出 JSON 摘要」是允许的明确负面指令；不应有正面要求
-    expect(out).toMatch(/不要\s*输出\s*JSON/);
-    expect(out).toMatch(/不要\s*Write\/Edit/);
-    expect(out).toMatch(/<section>/);
-    expect(out).toMatch(/data-layout/);
-    expect(out).toMatch(/200\s*字符/);
+    // The parent LLM's only job is dispatching. Explicitly forbids
+    // the old validation/retry work the parent used to do.
+    expect(out).toMatch(/不要读 slide 文件/);
+    expect(out).toMatch(/不要做 6 项验证/);
+    expect(out).toMatch(/不要 retry/);
+    expect(out).toMatch(/不要输出 JSON 摘要/);
   });
 
-  it("PPT_PARENT_USER_PROMPT renders with full context", async () => {
+  it("PPT_PARENT_USER_PROMPT renders a compact dispatch template", async () => {
     const out = await renderPrompt("PPT_PARENT_USER_PROMPT", {
-      outlineSummary: "30 slides total",
-      intentJson: { audience: "execs" },
-      styleJson: { primaryColor: "#000" },
-      slidesJson: [{ id: "s1", title: "T1", layout: 1 }],
-      subAgentPromptsJson: [{ slideId: "s1", prompt: "..." }],
+      totalSlides: "12",
+      slidesJson: [
+        { id: "s1", title: "封面", layout: 1 },
+        { id: "s2", title: "趋势", layout: 4 },
+      ],
     });
-    expect(out).toContain("30 slides total");
-    expect(out).toContain('"audience": "execs"');
-    expect(out).toContain('"slideId": "s1"');
+    // Slide list is embedded so the parent can iterate dispatch
+    expect(out).toContain('"id": "s1"');
+    expect(out).toContain('"id": "s2"');
+    // Dispatch instructions reference the task file contract
+    expect(out).toMatch(/tasks\//);
+    expect(out).toMatch(/slides\//);
   });
 
-  it("PPT_SLIDE_GENERATOR_PROMPT renders per-slide with neighbors", async () => {
+  it("PPT_SLIDE_GENERATOR_PROMPT still renders the per-slide template (kept for reference / e2e)", async () => {
     const out = await renderPrompt("PPT_SLIDE_GENERATOR_PROMPT", {
       slideId: "slide-3",
       title: "市场分析",
