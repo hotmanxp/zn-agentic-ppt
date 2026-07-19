@@ -5,6 +5,7 @@ import { useStageStreamSubscription } from "../hooks/useStageStreamSubscription.
 import { useWorkbenchSubscriptions } from "../hooks/useWorkbenchSubscriptions.js";
 import { api } from "../lib/api.js";
 import { usePptGenerationStore } from "../stores/pptGeneration.js";
+import { useProjectDetailStore } from "../stores/projectDetail.js";
 import { useProjectStore } from "../stores/project.js";
 import { useStageStreamStore } from "../stores/stageStream.js";
 import { useWorkbenchStore } from "../stores/workbench.js";
@@ -80,6 +81,15 @@ export function Workbench() {
       setPhase("outline");
     }
     if (phase === "generating" && pptGen === "done") {
+      // Reload project detail so the deck preview / artifact panel see
+      // the actual HTML files that sub-agents just wrote to disk.
+      // The pptGeneration store gets STAGE_HTML_SLIDE_READY broadcasts
+      // as the orchestrator runs, but if any were dropped (or the user
+      // navigated away), this guarantees the preview matches disk.
+      const detailProjectId = useWorkbenchStore.getState().activeProjectId;
+      if (detailProjectId) {
+        void useProjectDetailStore.getState().load(detailProjectId);
+      }
       // Record completion card (one entry per run).
       useWorkbenchStore.setState((s) => {
         const lastRevision = s.revisions[s.revisions.length - 1];
