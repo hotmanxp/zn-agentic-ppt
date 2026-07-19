@@ -105,6 +105,9 @@ export async function getProject(id: string): Promise<ProjectDetail | null> {
       }
     }
 
+    // Stage 1.5: intent existence (cheap statSync — no read)
+    const hasIntent = existsSync(join(dir, "intent.json"));
+
     return {
       ...meta,
       html,
@@ -114,6 +117,7 @@ export async function getProject(id: string): Promise<ProjectDetail | null> {
       source,
       brief,
       structuredOutline,
+      hasIntent,
       style,
       slides,
     };

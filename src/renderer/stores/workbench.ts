@@ -327,11 +327,25 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       .appendWorkflow({ type: "generation-started", payload: { source: "approve-outline" } });
     // Phase transition to 'complete' / 'outline' (cancelled) / etc.
     // is driven by the Workbench watcher once pptGen reports its phase.
+    // P0-1: skip the redundant intent + outline LLM calls when they
+    // already exist on disk. approveSources → STAGE_OUTLINE_GENERATE
+    // already produced them (and now auto-runs intent if missing, see
+    // fix in stage.ts:154). Re-running here wastes 30-60s of LLM
+    // time per generation and forces the user to wait through a
+    // progress card that "finishes" with the same content.
+    // Force a detail reload first so the canSkip check sees the
+    // freshest on-disk state (approveSources doesn't reload).
+    const freshDetail = await useProjectDetailStore.getState().load(id);
+    const canSkip =
+      !!freshDetail && !!freshDetail.structuredOutline && freshDetail.hasIntent;
+
     void (async () => {
       useIntentGenerationStore.getState().reset();
       try {
-        await useIntentGenerationStore.getState().run(id);
-        await useStageStreamStore.getState().start("outline", id);
+        if (!canSkip) {
+          await useIntentGenerationStore.getState().run(id);
+          await useStageStreamStore.getState().start("outline", id);
+        }
         await usePptGenerationStore.getState().start(id);
       } catch (err) {
         // intent store already set phase=error, but pptGen.phase stayed at

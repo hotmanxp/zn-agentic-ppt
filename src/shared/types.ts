@@ -26,6 +26,8 @@ export interface ProjectDetail extends ProjectMeta {
   brief: ProjectBrief | null;
   // Stage 2 (structured; ProjectMeta.outline remains legacy markdown)
   structuredOutline: Outline | null;
+  /** Whether intent.json exists on disk (set by STAGE_INTENT_GENERATE). */
+  hasIntent: boolean;
   // Stage 3
   style: StyleSettings | null;
   slides: Array<{
