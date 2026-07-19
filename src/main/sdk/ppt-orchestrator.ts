@@ -1,8 +1,9 @@
 import type { Outline, Settings } from "../../shared/types.js";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import * as projectFs from "../fs/projects.js";
-import { renderPrompt } from "./prompts/index.js";
 import { LAYOUT_DIRECTIONS } from "./prompts/slide-user.js";
-import { PARENT_AGENT_TOOLS, runZaiQuery } from "./zai-bridge.js";
+import { getBackgroundRuntime, hasBackgroundRuntime } from "./zai-agent-core/runtime/background/registry.js";
 
 export type SlideStatus = "pending" | "layout" | "generating" | "done" | "failed";
 
@@ -42,6 +43,8 @@ export interface OrchestratorResult {
   cancelled: boolean;
 }
 
+const DEFAULT_MAX_RETRIES = 2;
+
 function numericLayout(slide: { layout?: string }, index: number): 1 | 2 | 3 | 4 | 5 {
   if (slide.layout === "cover") return 1;
   if (slide.layout === "list") return 2;
@@ -51,190 +54,259 @@ function numericLayout(slide: { layout?: string }, index: number): 1 | 2 | 3 | 4
   return ((index % 5) + 1) as 1 | 2 | 3 | 4 | 5;
 }
 
-interface SubAgentPrompt {
+interface SlideTaskMeta {
   slideId: string;
-  prompt: string;
+  retry: number;
 }
 
-async function buildSubAgentPrompts(
-  outline: Outline,
-  style: unknown,
-): Promise<SubAgentPrompt[]> {
-  return Promise.all(
-    outline.slides.map(async (s, i) => {
-      const layout = numericLayout(s, i);
-      const neighborIds = [
-        outline.slides[i - 1]?.id,
-        outline.slides[i + 1]?.id,
-      ].filter(Boolean) as string[];
-      const neighborPaths = neighborIds.map((id) => `slides/${id}.html`).join("\n");
-      const targetBullets = (s.bullets ?? [])
-        .map((b, j) => `  ${j + 1}. ${b}`)
-        .join("\n");
-      const prompt = await renderPrompt("PPT_SLIDE_GENERATOR_PROMPT", {
-        slideId: s.id,
-        title: s.title,
-        bullets: targetBullets,
-        notes: s.notes ?? "",
-        layout: layout.toString(),
-        layoutDirection: LAYOUT_DIRECTIONS[layout - 1] ?? "",
-        neighborPaths,
-        style: style ? JSON.stringify(style) : "{}",
-      });
-      return { slideId: s.id, prompt };
-    }),
-  );
+interface TaskEventLike {
+  type?: string;
+  task?: { id?: string; status?: string; metadata?: SlideTaskMeta & Record<string, unknown>; error?: { message?: string } };
+  event?: { type?: string; data?: unknown };
 }
 
-async function buildParentUserPrompt(
+interface SlideState {
+  status: SlideStatus;
+  html?: string;
+  error?: string;
+  layout: 1 | 2 | 3 | 4 | 5;
+  dispatchCount: number;
+  retries: number;
+  taskId?: string;
+}
+
+const SUB_AGENT_PROMPT = (slideId: string, retryFeedback?: string): string => {
+  const base = `Read the file \`tasks/${slideId}.md\` for your full task context (title, bullets, notes, layout, neighbour slides, global style). Then use the Write tool to write \`slides/${slideId}.html\` containing a single \`<section data-layout="N">…</section>\` element for this slide. Visual rules are spelled out in the task file — follow them strictly (16:9, 960×540, inline styles, position:absolute for decorations).
+
+After writing, use Read to re-read your output and self-check: \`<section>\` element present, \`data-layout\` attribute correct, length > 200 characters, structure well-formed. If any check fails, use Edit to fix. Up to 3 self-iterations. When done, output a one-line summary.`;
+  return retryFeedback ? `${base}\n\n[Previous attempt failed]\n${retryFeedback}\nPlease fix these issues and rewrite \`slides/${slideId}.html\`.` : base;
+};
+
+/**
+ * Write the per-slide task file the sub-agent will read. All the
+ * per-slide context (title, bullets, notes, layout, neighbours, style)
+ * goes here so the parent's user message stays small (~200 token).
+ */
+async function writeTaskFile(
+  cwd: string,
+  slide: Outline["slides"][number],
+  index: number,
   outline: Outline,
   style: unknown,
-  intent: unknown,
-  subPrompts: SubAgentPrompt[],
-): Promise<string> {
-  const slidesJson = outline.slides.map((s, i) => ({
-    id: s.id,
-    title: s.title,
-    layout: numericLayout(s, i),
-  }));
-  return renderPrompt("PPT_PARENT_USER_PROMPT", {
-    outlineSummary: outline.slides.map((s) => `- ${s.title}`).join("\n"),
-    intentJson: intent ?? {},
-    styleJson: style ?? {},
-    slidesJson,
-    subAgentPromptsJson: subPrompts,
-  });
+): Promise<void> {
+  const layout = numericLayout(slide, index);
+  const neighbourIds = [
+    outline.slides[index - 1]?.id,
+    outline.slides[index + 1]?.id,
+  ].filter(Boolean) as string[];
+  const neighbourPaths = neighbourIds.map((id) => `slides/${id}.html`);
+  const bullets = (slide.bullets ?? [])
+    .map((b, j) => `${j + 1}. ${b}`)
+    .join("\n");
+  const md = [
+    `# Slide ${slide.id}`,
+    ``,
+    `## Title`,
+    slide.title,
+    ``,
+    `## Bullets`,
+    bullets || "(none)",
+    ``,
+    `## Notes`,
+    slide.notes || "(none)",
+    ``,
+    `## Layout`,
+    `Layout ${layout} — ${LAYOUT_DIRECTIONS[layout - 1] ?? ""}`,
+    ``,
+    `## Neighbour slides (Read for style consistency)`,
+    neighbourPaths.length > 0 ? neighbourPaths.join("\n") : "(no neighbours — this is the only slide)",
+    ``,
+    `## Global style`,
+    "```json",
+    JSON.stringify(style ?? {}, null, 2),
+    "```",
+  ].join("\n");
+  await writeFile(join(cwd, "tasks", `${slide.id}.md`), md, "utf8");
+}
+
+async function readSlideHtml(cwd: string, slideId: string): Promise<string | null> {
+  try {
+    return await readFile(join(cwd, "slides", `${slideId}.html`), "utf8");
+  } catch {
+    return null;
+  }
+}
+
+interface ValidationResult {
+  ok: boolean;
+  reasons: string[];
 }
 
 /**
- * Phase 1 重写：用父 agent + N 个 general-purpose 子 agent 替换 worker pool。
- * 本版本只实现"调 runZaiQuery + 等 runtime 终止事件"。事件桥接
- * （subagent:start / done → onSlideReady 回调）在后续步骤加入。
+ * Mechanical 6-condition check, mirrors the parent's old LLM-driven
+ * validation. Runs in microseconds — no LLM call.
+ */
+async function validateSlide(cwd: string, slideId: string, expectedLayout: 1 | 2 | 3 | 4 | 5): Promise<ValidationResult> {
+  const reasons: string[] = [];
+  const html = await readSlideHtml(cwd, slideId);
+  if (!html) {
+    reasons.push("file missing or empty");
+    return { ok: false, reasons };
+  }
+  if (!html.includes("<section")) reasons.push("missing <section> element");
+  const dlMatch = html.match(/data-layout=["'](\d)["']/);
+  if (!dlMatch) reasons.push("missing data-layout attribute");
+  else if (Number(dlMatch[1]) !== expectedLayout) {
+    reasons.push(`data-layout=${dlMatch[1]} (expected ${expectedLayout})`);
+  }
+  if (html.length < 200) reasons.push(`html too short (${html.length} chars, need > 200)`);
+  // Cheap structural check: open/close tag balance
+  const openCount = (html.match(/<section\b/g) ?? []).length;
+  const closeCount = (html.match(/<\/section>/g) ?? []).length;
+  if (openCount !== closeCount) reasons.push(`<section> tag mismatch (${openCount} open vs ${closeCount} close)`);
+  return { ok: reasons.length === 0, reasons };
+}
+
+/**
+ * P1-4 + BackgroundRuntime: drop the parent LLM. Main process dispatches
+ * every slide directly via BackgroundRuntime, listens to per-task events,
+ * runs mechanical validation, and retries up to `maxRetries` times
+ * before giving up. No more parent-LLM roundtrip overhead.
  */
 export async function runOrchestrator(opts: OrchestratorOptions): Promise<OrchestratorResult> {
   const total = opts.outline.slides.length;
+  const maxRetries = Math.max(0, opts.maxRetries ?? DEFAULT_MAX_RETRIES);
 
-  // Step 1: 写 framework HTML，让 renderer 立即能 fetch slides/<id>.html
+  // 1. Write framework HTML so the renderer can fetch slides/<id>.html.
   const frameworkHtml = `<!DOCTYPE html><html><head><title>${opts.outline.slides[0]?.title ?? "Presentation"}</title></head><body><main id="slides"></main></body></html>`;
   await projectFs.writeProjectFramework(opts.projectId, frameworkHtml);
 
-  // Step 2: 构建父子 prompt
-  const subPrompts = await buildSubAgentPrompts(opts.outline, opts.style);
-  const parentUserPrompt = await buildParentUserPrompt(
-    opts.outline,
-    opts.style,
-    null,
-    subPrompts,
+  // 2. Write per-slide task files (the heavy context the sub-agent reads).
+  await mkdir(join(opts.cwd, "tasks"), { recursive: true });
+  await mkdir(join(opts.cwd, "slides"), { recursive: true });
+  await Promise.all(
+    opts.outline.slides.map((s, i) =>
+      writeTaskFile(opts.cwd, s, i, opts.outline, opts.style),
+    ),
   );
 
-  // Step 3: 调一次 runZaiQuery，启动父 agent
-  const parentSystemPrompt = await renderPrompt("PPT_PARENT_SYSTEM_PROMPT", {});
-  const stream = runZaiQuery({
-    prompt: parentUserPrompt,
-    cwd: opts.cwd,
-    model: opts.settings.llm.model,
-    systemPrompt: parentSystemPrompt,
-    maxTurns: 50,
-    baseUrl: opts.settings.llm.baseUrl,
-    apiKey: opts.settings.llm.apiKey,
-    additionalTools: PARENT_AGENT_TOOLS,
-  });
-
-  // Step 4: 事件桥 — 父 stream 事件 → onSlideReady 回调 + 内部 slideState
-  interface SlideStateEntry {
-    status: SlideStatus;
-    html?: string;
-    error?: string;
-    dispatchCount: number;
-  }
-  const slideState = new Map<string, SlideStateEntry>();
-  const subToSlide = new Map<string, string>();
-  let cancelled = false;
-  let runtimeDone = false;
-
-  const parseSlideId = (desc?: string): string | null => {
-    const m = desc?.match(/Generate slide (\S+)/);
-    return m ? m[1] : null;
-  };
-
-  const getLayoutFor = (slideId: string): 1 | 2 | 3 | 4 | 5 => {
-    const idx = opts.outline.slides.findIndex((s) => s.id === slideId);
-    return numericLayout(idx >= 0 ? opts.outline.slides[idx] : {}, idx >= 0 ? idx : 0);
-  };
-
-  try {
-    for await (const ev of stream) {
-      const t = (ev as { type: string }).type;
-      if (t === "subagent:start") {
-        const e = ev as unknown as { subSessionId: string; description?: string };
-        const slideId = parseSlideId(e.description);
-        if (!slideId) continue;
-        subToSlide.set(e.subSessionId, slideId);
-        const s = slideState.get(slideId) ?? { status: "pending", dispatchCount: 0 };
-        s.dispatchCount++;
-        if (s.dispatchCount === 1) {
-          s.status = "layout";
-          slideState.set(slideId, s);
-          await opts.onSlideReady?.({
-            id: slideId,
-            title: slideId,
-            status: "layout",
-            layout: getLayoutFor(slideId),
-          });
-          opts.onProgress?.({ completed: 0, total, slideId, status: "layout" });
-        }
-      } else if (t === "subagent:done") {
-        const e = ev as unknown as { subSessionId: string; exitReason?: string; output?: string };
-        const slideId = subToSlide.get(e.subSessionId);
-        if (!slideId) continue;
-        const layout = getLayoutFor(slideId);
-        let html: string | null = null;
-        try {
-          const fs = await import("node:fs/promises");
-          html = await fs.readFile(`${opts.cwd}/slides/${slideId}.html`, "utf8");
-        } catch {
-          html = null;
-        }
-        const s = slideState.get(slideId) ?? { status: "pending", dispatchCount: 1 };
-        if (e.exitReason === "completed" && html) {
-          s.status = "done";
-          s.html = html;
-          slideState.set(slideId, s);
-          await opts.onSlideReady?.({
-            id: slideId, title: slideId, status: "done", layout, html,
-          });
-        } else {
-          s.status = "failed";
-          s.error = e.output ?? `exitReason=${e.exitReason}`;
-          slideState.set(slideId, s);
-          await opts.onSlideReady?.({
-            id: slideId, title: slideId, status: "failed", layout, error: s.error,
-          });
-        }
-      } else if (t === "runtime.done" || t === "runtime.error") {
-        runtimeDone = true;
-        break;
-      } else if (t === "runtime.aborted") {
-        cancelled = true;
-        break;
-      }
-    }
-  } catch {
-    // runZaiQuery 抛错 → fallback 视为所有 slide 失败
+  // 3. Get BackgroundRuntime. If absent, we can't dispatch — fail fast.
+  if (!hasBackgroundRuntime()) {
     return { completed: 0, failed: total, total, cancelled: false };
   }
+  const bg = getBackgroundRuntime()!;
 
-  if (opts.signal?.aborted) cancelled = true;
+  // 4. Per-slide state. dispatchCount is kept for symmetry with the old
+  //    parent-LLM design (renderer can observe a flicker-free "layout"
+  //    transition if it ever needs to); the parent-LLM emit-once contract
+  //    becomes "broadcast layout on first dispatch for this slide".
+  const slideState = new Map<string, SlideState>();
+  const ensure = (slideId: string, layout: 1 | 2 | 3 | 4 | 5): SlideState => {
+    let s = slideState.get(slideId);
+    if (!s) {
+      s = { status: "pending", layout, dispatchCount: 0, retries: 0 };
+      slideState.set(slideId, s);
+    }
+    return s;
+  };
 
-  // 统计完成 / 失败（runtime 终止但 slide 没动的视为 failed）
+  const broadcastLayout = async (slideId: string) => {
+    const s = slideState.get(slideId);
+    if (!s) return;
+    await opts.onSlideReady?.({
+      id: slideId,
+      title: slideId,
+      status: "layout",
+      layout: s.layout,
+    });
+    opts.onProgress?.({ completed: 0, total, slideId, status: "layout" });
+  };
+  const broadcastDone = async (slideId: string, html: string) => {
+    const s = slideState.get(slideId);
+    if (!s) return;
+    s.status = "done";
+    s.html = html;
+    await opts.onSlideReady?.({ id: slideId, title: slideId, status: "done", layout: s.layout, html });
+  };
+  const broadcastFailed = async (slideId: string, error: string) => {
+    const s = slideState.get(slideId);
+    if (!s) return;
+    s.status = "failed";
+    s.error = error;
+    await opts.onSlideReady?.({ id: slideId, title: slideId, status: "failed", layout: s.layout, error });
+  };
+
+  // 5. Track all dispatched task ids so we can wait for them.
+  const dispatched: Array<{ slideId: string; taskId: string; isRetry: boolean }> = [];
+
+  // 6. Per-slide: dispatch + consume events() + validate + maybe retry.
+  //    All slides run in parallel up to BackgroundRuntime's maxConcurrent.
+  const runSlide = async (slideId: string, retry: number, isRetry: boolean, prevFeedback?: string): Promise<void> => {
+    const layout = numericLayout(
+      opts.outline.slides.find((s) => s.id === slideId) ?? {},
+      opts.outline.slides.findIndex((s) => s.id === slideId),
+    );
+    const s = ensure(slideId, layout);
+    s.retries = retry;
+    s.dispatchCount++;
+    if (!isRetry) await broadcastLayout(slideId);
+    const task = await bg.dispatch({
+      prompt: SUB_AGENT_PROMPT(slideId, prevFeedback),
+      cwd: opts.cwd,
+      agent: "general-purpose",
+      metadata: { slideId, retry, isRetry },
+    });
+    dispatched.push({ slideId, taskId: task.id, isRetry });
+    s.taskId = task.id;
+    if (opts.signal?.aborted) return;
+
+    // Consume the task's event stream until completion.
+    for await (const ev of bg.events(task.id, undefined, opts.signal)) {
+      const evt = ev as TaskEventLike;
+      const t = evt?.type ?? evt?.event?.type;
+      if (t === "completed") {
+        const validation = await validateSlide(opts.cwd, slideId, layout);
+        if (validation.ok) {
+          const html = (await readSlideHtml(opts.cwd, slideId)) ?? "";
+          await broadcastDone(slideId, html);
+          return;
+        }
+        // Validation failed — retry with feedback
+        if (retry < maxRetries) {
+          const feedback = validation.reasons.join("; ");
+          await runSlide(slideId, retry + 1, true, feedback);
+        } else {
+          await broadcastFailed(
+            slideId,
+            `validation failed after ${maxRetries} retries: ${validation.reasons.join("; ")}`,
+          );
+        }
+        return;
+      }
+      if (t === "failed") {
+        const errMsg = evt?.task?.error?.message ?? "sub-agent task failed";
+        if (retry < maxRetries) {
+          await runSlide(slideId, retry + 1, true, `sub-agent error: ${errMsg}`);
+        } else {
+          await broadcastFailed(slideId, `sub-agent failed after ${maxRetries} retries: ${errMsg}`);
+        }
+        return;
+      }
+      // 'queued' / 'running' / intermediate events — no action needed
+    }
+  };
+
+  // 7. Kick off every slide in parallel. BackgroundRuntime caps concurrency.
+  await Promise.all(
+    opts.outline.slides.map((s) => runSlide(s.id, 0, false)),
+  );
+
+  // 8. Tally final state.
   let completed = 0;
   let failed = 0;
-  for (const slideId of opts.outline.slides.map((s) => s.id)) {
-    const s = slideState.get(slideId);
-    if (s?.status === "done") completed++;
-    else if (s?.status === "failed") failed++;
-    else if (!cancelled && runtimeDone) failed++;
+  for (const s of slideState.values()) {
+    if (s.status === "done") completed++;
+    else if (s.status === "failed") failed++;
   }
-
-  return { completed, failed, total, cancelled };
+  return { completed, failed, total, cancelled: !!opts.signal?.aborted };
 }

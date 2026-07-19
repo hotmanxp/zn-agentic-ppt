@@ -2,34 +2,21 @@ import type { PromptSpec } from "./types.js";
 
 export const pptParentUserPrompt: PromptSpec = {
   id: "PPT_PARENT_USER_PROMPT",
-  title: "PPT 编排父 agent 用户提示词",
-  description: "把 outline/intent/style + 预渲染的子 agent prompt 数组拼成一个 user message 给父 agent。",
-  defaultTemplate: `## Outline 摘要
-{{outlineSummary}}
-
-## Intent（来自 intent.json）
-{{intentJson}}
-
-## Style（来自 style.json）
-{{styleJson}}
-
-## 待生成 slides
+  title: "PPT 编排父 agent 用户提示词（P1-4 精简版）",
+  description: "slide 列表 + 固定 dispatch prompt 模板。父 LLM 只需要 iterate dispatch。",
+  defaultTemplate: `## 待生成 slides（共 {{totalSlides}} 张）
 {{slidesJson}}
 
-## 子 agent 指令（已预渲染，直接 dispatch，不要改）
-{{subAgentPromptsJson}}
-
 ## 任务
-对每张 slide 派发一个 Agent 工具调用（subagent_type=general-purpose,
-run_in_background=true, description="Generate slide <slideId>",
-prompt=上面数组里对应 slideId 的 prompt）。
+对每张 slide 用 Agent 工具派发：
+- subagent_type=general-purpose
+- run_in_background=true
+- description="Generate slide <slideId>"
+- prompt="读 tasks/<slideId>.md 拿完整任务（标题/要点/备注/layout/邻居 slide/全局样式），然后用 Write 工具生成 slides/<slideId>.html 的 <section> HTML。生成后用 Read 自检结构（<section> 元素、data-layout 属性、长度 > 200 字符），不通过用 Edit 修复。"
 
-第一轮 turn 全部一起发，不要分批。`,
+第一轮 turn 全部一起发（description 替换 <slideId>，prompt 里的 <slideId> 也替换）。`,
   variables: [
-    { name: "outlineSummary", description: "outline 摘要文本", type: "string" },
-    { name: "intentJson", description: "intent.json 内容", type: "json" },
-    { name: "styleJson", description: "style.json 内容", type: "json" },
-    { name: "slidesJson", description: "待生成 slide 列表", type: "json" },
-    { name: "subAgentPromptsJson", description: "预渲染的子 agent prompt 数组", type: "json" },
+    { name: "totalSlides", description: "slide 总数", type: "string" },
+    { name: "slidesJson", description: "slide 列表 JSON（id + title + layout）", type: "json" },
   ],
 };
