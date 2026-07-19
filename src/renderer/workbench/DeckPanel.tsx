@@ -8,7 +8,9 @@ import {
 import { App as AntdApp } from "antd";
 import { SlidePreview } from "../components/SlidePreview.js";
 import { api } from "../lib/api.js";
+import { useEffect } from "react";
 import { usePptGenerationStore } from "../stores/pptGeneration.js";
+import { useProjectDetailStore } from "../stores/projectDetail.js";
 import { useStageStreamStore } from "../stores/stageStream.js";
 import { useWorkbenchStore } from "../stores/workbench.js";
 
@@ -23,6 +25,22 @@ export function DeckPanel({
   const setSelectedSlide = useWorkbenchStore((s) => s.setSelectedSlide);
   const activeProjectId = useWorkbenchStore((s) => s.activeProjectId);
   const setToast = useWorkbenchStore((s) => s.setToast);
+  const detailLoadedId = useProjectDetailStore((s) => s.loadedProjectId);
+  const detailLoad = useProjectDetailStore((s) => s.load);
+  // Force a fresh project-detail load whenever the DeckPanel mounts
+  // for a project. The pptGeneration store can be stale (renderer
+  // hot-reload, dropped IPC events, user navigated away mid-run),
+  // and the deck preview shows "等待生成…" until the store catches
+  // up. Loading detail here guarantees the preview matches disk.
+  useEffect(() => {
+    if (activeProjectId && activeProjectId !== detailLoadedId) {
+      void detailLoad(activeProjectId);
+    } else if (activeProjectId) {
+      // Even if loadedProjectId matches, re-load on mount so a
+      // previous session's stale in-memory detail is replaced.
+      void detailLoad(activeProjectId);
+    }
+  }, [activeProjectId]);
   const { message, modal } = AntdApp.useApp();
 
   // Order slides by outline (not by layout) so prev/next follows page order.
