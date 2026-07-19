@@ -412,6 +412,7 @@ export function registerStageIPC() {
         maxRetries: 2,
         signal: ac.signal,
         onSlideReady: async (slide) => {
+          console.log(`[stage:html-generate:${id}] broadcast STAGE_HTML_SLIDE_READY slideId=${slide.id} status=${slide.status}`);
           broadcast(IPC.STAGE_HTML_SLIDE_READY, {
             projectId: id,
             slideId: slide.id,
