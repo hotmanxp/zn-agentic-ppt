@@ -213,6 +213,8 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
   const broadcastLayout = async (slideId: string) => {
     const s = slideState.get(slideId);
     if (!s) return;
+    s.status = "layout";
+    s.dispatchCount++; // duplicate of runSlide's bump — keeps external state consistent
     await opts.onSlideReady?.({
       id: slideId,
       title: slideId,
@@ -235,6 +237,30 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
     s.error = error;
     await opts.onSlideReady?.({ id: slideId, title: slideId, status: "failed", layout: s.layout, error });
   };
+  /**
+   * Defensive: if a slide's events stream ends without us seeing a
+   * terminal event (completed / failed), the slide is still in
+   * "layout" state. The user previously hit "等待生成..." forever
+   * because of this. If the file is actually on disk (the sub-agent
+   * finished writing before the events() stream closed without a
+   * "completed" event), validate and broadcast done; otherwise
+   * broadcast failed so the renderer shows a terminal state.
+   */
+  const finalizeIfStuck = async (slideId: string) => {
+    const s = slideState.get(slideId);
+    if (!s || s.status !== "layout") return;
+    const layout = numericLayout(
+      opts.outline.slides.find((x) => x.id === slideId) ?? {},
+      opts.outline.slides.findIndex((x) => x.id === slideId),
+    );
+    const validation = await validateSlide(opts.cwd, slideId, layout);
+    if (validation.ok) {
+      const html = (await readSlideHtml(opts.cwd, slideId)) ?? "";
+      await broadcastDone(slideId, html);
+    } else {
+      await broadcastFailed(slideId, `事件流未收到完成事件：${validation.reasons.join("; ")}`);
+    }
+  };
 
   // 5. Track all dispatched task ids so we can wait for them.
   const dispatched: Array<{ slideId: string; taskId: string; isRetry: boolean }> = [];
@@ -249,7 +275,9 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
     const s = ensure(slideId, layout);
     s.retries = retry;
     s.dispatchCount++;
-    if (!isRetry) await broadcastLayout(slideId);
+    if (!isRetry) {
+      await broadcastLayout(slideId);
+    }
     const task = await bg.dispatch({
       prompt: SUB_AGENT_PROMPT(slideId, prevFeedback),
       cwd: opts.cwd,
@@ -261,10 +289,12 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
     if (opts.signal?.aborted) return;
 
     // Consume the task's event stream until completion.
+    let terminalSeen = false;
     for await (const ev of bg.events(task.id, undefined, opts.signal)) {
       const evt = ev as TaskEventLike;
       const t = evt?.type ?? evt?.event?.type;
       if (t === "completed") {
+        terminalSeen = true;
         const validation = await validateSlide(opts.cwd, slideId, layout);
         if (validation.ok) {
           const html = (await readSlideHtml(opts.cwd, slideId)) ?? "";
@@ -284,6 +314,7 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
         return;
       }
       if (t === "failed") {
+        terminalSeen = true;
         const errMsg = evt?.task?.error?.message ?? "sub-agent task failed";
         if (retry < maxRetries) {
           await runSlide(slideId, retry + 1, true, `sub-agent error: ${errMsg}`);
@@ -293,6 +324,9 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<Orches
         return;
       }
       // 'queued' / 'running' / intermediate events — no action needed
+    }
+    if (!terminalSeen) {
+      await finalizeIfStuck(slideId);
     }
   };
 

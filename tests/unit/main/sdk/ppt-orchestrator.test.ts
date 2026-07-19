@@ -241,6 +241,37 @@ describe("runOrchestrator (P1-4: direct BackgroundRuntime dispatch)", () => {
     expect(result.failed).toBe(1);
   });
 
+  it("events stream ends without terminal event → validates disk and broadcasts done/failed", async () => {
+    const readyEvents: any[] = [];
+    const r = runOrchestrator({
+      projectId: "p1",
+      outline: { topic: "T", slides: [{ id: "s1", title: "A" }] } as any,
+      settings: { llm: { baseUrl: "https://x", apiKey: "sk-fake", model: "test-model" } } as any,
+      cwd: workDir,
+      onSlideReady: (slide) => readyEvents.push(slide),
+    });
+    await new Promise((res) => setTimeout(res, 20));
+    // Simulate the sub-agent writing the file BEFORE the events() stream
+    // closes (i.e. the file is on disk, but the orchestrator's consumer
+    // never saw the "completed" event before the stream ended).
+    const taskId = Array.from(mockRuntime.tasks.keys())[0];
+    mkdirSync(join(workDir, "slides"), { recursive: true });
+    writeFileSync(
+      join(workDir, "slides", "s1.html"),
+      `<section data-layout="1">${"x".repeat(300)}</section>`,
+    );
+    // Force-close the events stream without pushing a terminal event.
+    // The mock's queue + closed live on the task object directly.
+    const task = mockRuntime.tasks.get(taskId)!;
+    task.closed.v = true;
+    task.queue.shift()?.resolve({ value: undefined, done: true });
+    const result = await r;
+    const s1Done = readyEvents.find((e) => e.id === "s1" && e.status === "done");
+    expect(s1Done).toBeDefined();
+    expect(s1Done.html).toContain("<section");
+    expect(result.completed).toBe(1);
+  });
+
   it("integrates without throwing on empty outline", async () => {
     mkdirSync(join(workDir, "p-empty"), { recursive: true });
     const result = await runOrchestrator({
